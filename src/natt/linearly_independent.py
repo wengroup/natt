@@ -609,9 +609,6 @@ def get_g_matrix(
     return matrix
 
 
-# TODO, this has been reimplemented in tabulate.py: get_G_H_S(), and there it is
-#  simplier since the the tensor G is sumed up first and then the contraction is done.
-#  Here, we first perform the contraction and then sum up the result.
 def embed(j: int, G: LinearCombination, X: Tensor = None, seed: int = 35) -> Tensor:
     r"""
     Evaluate S(n) = G(n|j) \odot^n X(j).
@@ -673,7 +670,6 @@ def embed(j: int, G: LinearCombination, X: Tensor = None, seed: int = 35) -> Ten
     return torch.stack(output).sum(dim=0)
 
 
-# TODO, this has been reimplemented in tabulate.py: get_G_H_S()
 def extract(H: LinearCombination, T: Tensor = None) -> Tensor:
     r"""
     Evaluate X^p,j = H^p(j|n) \odot^n T(n).
@@ -755,6 +751,12 @@ def find_matrix_factorization(
     return c, B
 
 
+# TODO, this can be done symbolically. Probably do it.
+#  We need:
+#  1. symbolic symmetrize() to get T. It is implemented in ops.py, but commented out
+#  2. multiply_2() to get X = G \odot^n T
+#  3. Simplify_linear_combination() to get the simplified X.
+#  4. Compare X to see if they are the same.
 def group_G_by_symmetry(
     all_G: list[LinearCombination],
     rank: int,
@@ -855,8 +857,8 @@ def get_independent_H_coeff(
             u_p.append(u_pq)
         u.append(u_p)
 
-    # The first num_ind rows of u corresponds to independent H, the rest num_p - num_ind
-    # rows corresponds to dependent H that  can be written as linear combinations of the
+    # The first num_ind rows of u correspond to independent H, the rest num_p - num_ind
+    # rows correspond to dependent H that can be written as linear combinations of the
     # first num_group rows.
     M = u[:num_ind]
     M = matrix_transpose(M)

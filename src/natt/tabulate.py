@@ -17,18 +17,11 @@ import torch
 from monty.serialization import dumpfn
 from torch import Tensor
 
-from natt.linearly_independent import (
-    embed,
-    get_G_even,
-    get_g_matrix,
-    get_G_odd,
-    get_H,
-    get_independent_H_coeff,
-    get_K,
-    group_G_by_symmetry,
-    matrix_inverse,
-    shift_index_2,
-)
+from natt.linearly_independent import (embed, get_G_even, get_g_matrix,
+                                       get_G_odd, get_H,
+                                       get_independent_H_coeff, get_K,
+                                       group_G_by_symmetry, matrix_inverse,
+                                       shift_index_2)
 from natt.matrix import float_matrix, fraction_matrix
 from natt.ops import multiply_2, simplify_linear_combination
 from natt.qr import find_independent_tensors
@@ -103,6 +96,10 @@ def tp_delta_epsilon(tp: TensorProduct, mode: str) -> Tensor:
 
 
 def evaluate_tensors(tensors: LinearCombination, mode: str) -> Tensor:
+    """
+    Evaluate the tensor product of Kronecker delta and Levi-Civita tensors to get
+    numerical values.
+    """
 
     # Evaluate each tensor product
     output = 0
@@ -288,6 +285,8 @@ if __name__ == "__main__":
     # get_G_H_S_of_j(j, rank, symmetry)
 
     ######
+    # rank = 2
+    # symmetry = "ij=ji"
     rank = 4
     symmetry = "ijkl=jikl=klij"
     out = get_G_H_S(rank, symmetry, numerical=False)
