@@ -16,7 +16,7 @@ from pprint import pprint
 import numpy as np
 from monty.serialization import dumpfn
 
-from natt.core.utils import dij, eijk, letter_index
+from natt.utils import dij, eijk, letter_index
 from natt.linearly_independent import (
     embed,
     get_G_even,

@@ -1,7 +1,7 @@
 import torch
 from torch import Tensor
 
-from natt.core.utils import dij, eijk
+from natt.utils import dij, eijk
 
 
 def tp_with_delta_epsilon(

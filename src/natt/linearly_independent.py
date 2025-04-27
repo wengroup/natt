@@ -15,13 +15,12 @@ from functools import reduce
 from math import gcd
 from pprint import pprint
 
+import numpy as np
 import torch
 from torch import Tensor
 
-from natt.core.reduce import symmetrize_and_remove_trace
-from natt.core.symmetrize import get_permutations_2
-from natt.core.utils import dij, eijk, is_symmetric, is_traceless, letter_index
 from natt.matrix import matrix_inverse, matrix_multiply, matrix_transpose
+from natt.ops import symmetrize_and_remove_trace
 from natt.qr import find_independent_tensors
 from natt.sym import symmetrize
 from natt.symbolic_tensor import (
@@ -34,6 +33,8 @@ from natt.symbolic_tensor import (
     multiply_2,
     simplify_2,
 )
+from natt.symmetrize import get_permutations_2
+from natt.utils import dij, eijk, is_symmetric, is_traceless, letter_index
 
 
 def get_E(j: int, s_letters: str = None) -> LinearCombination:
@@ -956,9 +957,11 @@ def group_G_by_symmetry(
             same.
     """
     # Create a tensor T with the specified symmetry
-    torch.manual_seed(35)
-    T = torch.randn(*([3] * rank))
+    # TODO, implemenet `symmetrize` using torch to replace numpy
+    np.random.seed(35)
+    T = np.random.randn(*([3] * rank))
     T = symmetrize(T, symmetry)
+    T = torch.tensor(T, dtype=torch.float32)
 
     all_X = [extract(G, T) for G in all_G]
 
