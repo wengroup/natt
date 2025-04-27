@@ -1,5 +1,5 @@
-import numpy as np
 import pytest
+import torch
 
 from natt.sym import symmetrize
 from natt.tabulate import get_G_H_S
@@ -28,9 +28,8 @@ def test_get_G_H_S(rank, symmetry):
     Args:
         rank: rank of the tensor T
     """
-    np.random.seed(35)
-
-    T = np.random.randn(*[3] * rank)
+    torch.manual_seed(35)
+    T = torch.randn(*[3] * rank)
 
     # symmetrize the tensor if `symmetry` is not None
     if symmetry is not None:
@@ -43,21 +42,21 @@ def test_get_G_H_S(rank, symmetry):
 
         for p, (H, G, S) in enumerate(zip(out_j["H"], out_j["G"], out_j["S"])):
             # X = H T
-            X = np.einsum(H["rule"], H["numerical"], T)
+            X = torch.einsum(H["rule"], H["numerical"], T)
 
             # T' = G X
-            T_p_1 = np.einsum(G["rule"], G["numerical"], X)
+            T_p_1 = torch.einsum(G["rule"], G["numerical"], X)
 
             # T' = S T
-            T_p_2 = np.einsum(S["rule"], S["numerical"], T)
+            T_p_2 = torch.einsum(S["rule"], S["numerical"], T)
 
             # T_p_1 and T_p_2 should be equal
-            assert np.allclose(T_p_1, T_p_2), (
+            assert torch.allclose(T_p_1, T_p_2, rtol=1e-5, atol=1e-6), (
                 f"T_p_1 and T_p_2 are not equal for j=" f"{j}, p={p}"
             )
 
             all_T_prime.append(T_p_1)
 
-    sum_T_prime = np.sum(all_T_prime, axis=0)
+    sum_T_prime = torch.sum(torch.stack(all_T_prime), dim=0)
 
-    assert np.allclose(sum_T_prime, T)
+    assert torch.allclose(sum_T_prime, T)

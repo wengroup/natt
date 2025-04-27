@@ -15,7 +15,6 @@ from functools import reduce
 from math import gcd
 from pprint import pprint
 
-import numpy as np
 import torch
 from torch import Tensor
 
@@ -957,11 +956,9 @@ def group_G_by_symmetry(
             same.
     """
     # Create a tensor T with the specified symmetry
-    # TODO, implemenet `symmetrize` using torch to replace numpy
-    np.random.seed(35)
-    T = np.random.randn(*([3] * rank))
+    torch.manual_seed(35)
+    T = torch.randn(*([3] * rank))
     T = symmetrize(T, symmetry)
-    T = torch.tensor(T, dtype=torch.float32)
 
     all_X = [extract(G, T) for G in all_G]
 

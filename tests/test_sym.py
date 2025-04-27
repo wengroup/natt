@@ -1,6 +1,6 @@
 import itertools
 
-import numpy as np
+import torch
 
 from natt.sym import check_symmetry, generate_permutations, symmetrize
 
@@ -42,14 +42,14 @@ def test_generate_permutations():
 
 
 def test_symmetrize():
-    np.random.seed(35)
+    torch.manual_seed(35)
 
-    t = np.random.randn(3, 3)
+    t = torch.randn(3, 3)
     symmetry = "ij=ji"
     out = symmetrize(t, symmetry)
     assert check_symmetry(out, symmetry)
 
-    t = np.random.randn(3, 3, 3)
+    t = torch.randn(3, 3, 3)
     symmetry = "ijk=ikj"
     out = symmetrize(t, symmetry)
     assert check_symmetry(out, symmetry)
@@ -58,7 +58,7 @@ def test_symmetrize():
     out = symmetrize(t, symmetry)
     assert check_symmetry(out, symmetry)
 
-    t = np.random.randn(3, 3, 3, 3)
+    t = torch.randn(3, 3, 3, 3)
     symmetry = "ijkl=jikl=klij"
     out = symmetrize(t, symmetry)
     assert check_symmetry(out, symmetry)

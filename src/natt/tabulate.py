@@ -13,10 +13,10 @@ where T' is the embedding of X in the T space.
 from fractions import Fraction
 from pprint import pprint
 
-import numpy as np
+import torch
 from monty.serialization import dumpfn
+from torch import Tensor
 
-from natt.utils import dij, eijk, letter_index
 from natt.linearly_independent import (
     embed,
     get_G_even,
@@ -39,35 +39,10 @@ from natt.symbolic_tensor import (
     multiply_2,
     simplify_2,
 )
+from natt.utils import dij, eijk, letter_index
 
 
-def dij() -> np.ndarray:
-    """Kronecker delta tensor.
-
-    Returns:
-        Kronecker delta tensor of shape (3, 3).
-    """
-    return np.eye(3)
-
-
-def eijk():
-    """Levi-Civita tensor.
-
-    Returns:
-        Levi-Civita tensor of shape (3, 3, 3).
-    """
-    e = np.zeros((3, 3, 3))
-    e[0, 1, 2] = 1.0
-    e[1, 2, 0] = 1.0
-    e[2, 0, 1] = 1.0
-    e[0, 2, 1] = -1.0
-    e[1, 0, 2] = -1.0
-    e[2, 1, 0] = -1.0
-
-    return e
-
-
-def tp_delta_epsilon(tp: TensorProduct, mode: str) -> np.ndarray:
+def tp_delta_epsilon(tp: TensorProduct, mode: str) -> Tensor:
     """Get the tensor product of Kronecker delta and Levi-Civita tensors.
 
     Note, the order of the indices need to be taken care of.
@@ -125,29 +100,25 @@ def tp_delta_epsilon(tp: TensorProduct, mode: str) -> np.ndarray:
     epsilons = [e for _ in range(len(epsilon_rules))]
     data = deltas + epsilons
 
-    product = np.einsum(rule, *data)
+    product = torch.einsum(rule, *data)
 
     # multiply factor
-    product = product * tp.factor
+    product = product * float(tp.factor)
 
     return product
 
 
-def evaluate_tensors(tensors: LinearCombination, mode: str) -> np.ndarray:
+def evaluate_tensors(tensors: LinearCombination, mode: str) -> Tensor:
 
     # Evaluate each tensor product
-    output = []
+    output = 0
     for tp in tensors.components:
         if isinstance(tp, TensorProduct):
-            v = tp_delta_epsilon(tp, mode)
-            output.append(v)
+            output = output + tp_delta_epsilon(tp, mode)
         else:
             raise ValueError(f"Unknown tensor type: {type(tp)}")
 
-    # Sum over all tensor products
-    sum = np.sum(output, axis=0)
-
-    return sum.tolist()
+    return output
 
 
 def get_G_H_S_of_j(j: int, n: int, symmetry: str = None) -> tuple[

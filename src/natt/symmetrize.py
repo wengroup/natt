@@ -1,4 +1,6 @@
-"""Fully symmetrize a (partially symmetric) tensor."""
+"""
+Symmetrization of a tensor (w or w/o partial symmetry) to get a fully symmetric tensor.
+"""
 
 import itertools
 

@@ -29,7 +29,6 @@ def test_Converter(rank, symmetry):
     # symmetrize the tensor if `symmetry` is not None
     if symmetry is not None:
         T = symmetrize(T, symmetry)
-        T = torch.from_numpy(T)
 
     X = converter.to_natural_tensor(T)
     T_2 = converter.to_ordinary_tensor(X)

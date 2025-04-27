@@ -1,8 +1,56 @@
 """
-Symmetrization of generic tensor to get tensor with specified symmetry.
+Symmetrization of a generic tensor to get a tensor with specific symmetry.
 """
 
-import numpy as np
+import torch
+from torch import Tensor
+
+
+def symmetrize(t: Tensor, symmetry: str, mode: str = "mean") -> Tensor:
+    """
+    Symmetrize a generic tensor to obtain a tensor with the specified symmetry.
+
+    This is achieved by pooling permutations of the tensor indices according to the
+    the given symmetry.
+
+    Args:
+        t: The input tensor to be symmetrized.
+        symmetry: The target symmetry of the output tensor. e.g. 'ijk=ikj=jik'.
+        mode: The pooling operation to be used. Can be "mean" or "sum".
+
+    Returns:
+        The symmetrized tensor with the specified symmetry.
+    """
+    rank = len(t.shape)
+    indices = set(symmetry.replace(" ", "").replace("=", ""))
+    if len(indices) != rank:
+        raise ValueError(f"Symmetry {symmetry} does not match tensor rank {rank}.")
+
+    perms = generate_permutations(symmetry)
+    if mode == "mean":
+        return torch.mean(torch.stack([torch.permute(t, p) for p in perms]), dim=0)
+    elif mode == "sum":
+        return torch.sum(torch.stack([torch.permute(t, p) for p in perms]), dim=0)
+    else:
+        raise ValueError(f"Unknown pooling operation: {mode}. Use 'mean' or 'sum'.")
+
+
+def check_symmetry(t: Tensor, symmetry: str, rtol=1e-5, atol=1e-8) -> bool:
+    """
+    Check if a tensor has the specified symmetry.
+
+    Args:
+        t: The input tensor to be checked.
+        symmetry: The target symmetry of the output tensor. e.g. 'ijk=ikj=jik'.
+
+    Returns:
+        True if the tensor has the specified symmetry, False otherwise.
+    """
+    perms = generate_permutations(symmetry)
+    for perm in perms:
+        if not torch.allclose(t, torch.permute(t, perm), rtol=rtol, atol=atol):
+            return False
+    return True
 
 
 def generate_closure(generators: list[tuple[int, ...]]) -> list[tuple[int, ...]]:
@@ -85,53 +133,6 @@ def generate_permutations(symmetry: str) -> list[tuple[int, ...]]:
     perms = generate_closure(generators)
 
     return perms
-
-
-def symmetrize(t: np.ndarray, symmetry: str, mode: str = "mean") -> np.ndarray:
-    """
-    Symmetrize a generic tensor to obtain a tensor with the specified symmetry.
-
-    This is achieved by pooling permutations of the tensor indices according to the
-    the given symmetry.
-
-    Args:
-        t: The input tensor to be symmetrized.
-        symmetry: The target symmetry of the output tensor. e.g. 'ijk=ikj=jik'.
-        mode: The pooling operation to be used. Can be "mean" or "sum".
-
-    Returns:
-        The symmetrized tensor with the specified symmetry.
-    """
-    rank = len(t.shape)
-    indices = set(symmetry.replace(" ", "").replace("=", ""))
-    if len(indices) != rank:
-        raise ValueError(f"Symmetry {symmetry} does not match tensor rank {rank}.")
-
-    perms = generate_permutations(symmetry)
-    if mode == "mean":
-        return np.mean([np.transpose(t, perm) for perm in perms], axis=0)
-    elif mode == "sum":
-        return np.sum([np.transpose(t, perm) for perm in perms], axis=0)
-    else:
-        raise ValueError(f"Unknown pooling operation: {mode}. Use 'mean' or 'sum'.")
-
-
-def check_symmetry(t: np.ndarray, symmetry: str, rtol=1e-5, atol=1e-8) -> bool:
-    """
-    Check if a tensor has the specified symmetry.
-
-    Args:
-        t: The input tensor to be checked.
-        symmetry: The target symmetry of the output tensor. e.g. 'ijk=ikj=jik'.
-
-    Returns:
-        True if the tensor has the specified symmetry, False otherwise.
-    """
-    perms = generate_permutations(symmetry)
-    for perm in perms:
-        if not np.allclose(t, np.transpose(t, perm), rtol=rtol, atol=atol):
-            return False
-    return True
 
 
 if __name__ == "__main__":
