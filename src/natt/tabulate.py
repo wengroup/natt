@@ -30,15 +30,9 @@ from natt.linearly_independent import (
     shift_index_2,
 )
 from natt.matrix import float_matrix, fraction_matrix
+from natt.ops import multiply_2, simplify_2
 from natt.qr import find_independent_tensors
-from natt.symbolic_tensor import (
-    Delta,
-    Epsilon,
-    LinearCombination,
-    TensorProduct,
-    multiply_2,
-    simplify_2,
-)
+from natt.symbolic import Delta, Epsilon, LinearCombination, TensorProduct
 from natt.utils import dij, eijk, letter_index
 
 

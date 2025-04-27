@@ -18,16 +18,15 @@ import torch
 from torch import Tensor
 
 from natt.matrix import matrix_inverse, matrix_multiply, matrix_transpose
+from natt.ops import multiply_2, simplify_2
 from natt.sym import symmetrize
-from natt.symbolic_tensor import (
+from natt.symbolic import (
     CartesianTensor,
     Delta,
     Epsilon,
     LinearCombination,
     Scalar,
     TensorProduct,
-    multiply_2,
-    simplify_2,
 )
 from natt.symmetrize import get_permutations_2, symmetrize_and_remove_trace
 from natt.utils import dij, eijk, letter_index

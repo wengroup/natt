@@ -3,7 +3,14 @@ from fractions import Fraction
 
 from pytest import fixture
 
-from natt.symbolic_tensor import (
+from natt.ops import (
+    contract_epsilon_delta,
+    contract_two_epsilon,
+    contract_with_delta,
+    simplify,
+    symmetrize,
+)
+from natt.symbolic import (
     CartesianTensor,
     Delta,
     Epsilon,
@@ -11,11 +18,6 @@ from natt.symbolic_tensor import (
     Scalar,
     TensorProduct,
     Zero,
-    contract_epsilon_delta,
-    contract_two_epsilon,
-    contract_with_delta,
-    simplify,
-    symmetrize,
 )
 
 
