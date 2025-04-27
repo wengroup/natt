@@ -6,8 +6,15 @@ import itertools
 from collections import Counter, defaultdict
 from fractions import Fraction
 
-from natt.symbolic import (CartesianTensor, Delta, Epsilon, LinearCombination,
-                           Scalar, TensorProduct, Zero)
+from natt.symbolic import (
+    CartesianTensor,
+    Delta,
+    Epsilon,
+    LinearCombination,
+    Scalar,
+    TensorProduct,
+    Zero,
+)
 
 
 def contract_with_delta(delta: Delta, tensor: CartesianTensor) -> CartesianTensor:
