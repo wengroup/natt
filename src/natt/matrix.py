@@ -1,4 +1,4 @@
-"""Matrix operations for Fraction objects."""
+"""Matrix operations on Fraction objects."""
 
 from fractions import Fraction
 

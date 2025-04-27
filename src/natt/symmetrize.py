@@ -7,9 +7,159 @@ import itertools
 import torch
 from torch import Tensor
 
-from natt.utils import letter_index, repeat_double_index
+from natt.utils import dij, double_index, letter_index, repeat_double_index
 
-# TODO, most of the functionaity are present in `natt.ops`. So, reuse.
+
+def symmetrize_and_remove_trace(
+    t: Tensor, start_dim: int = 0, symmetry: str = None
+) -> Tensor:
+    """
+    Symmetrize and remove the trace of a (generic) tensor.
+
+    This only extracts the symmetric traceless part of the tensor at the same rank.
+    The antisymmetric part is totally ignored, which can further be decomposed into
+    symmetric and traceless tensors of lower ranks.
+
+    Args:
+        t: input tensor
+        start_dim: the starting dimension to perform the operation. Dimensions before
+            `start_dim` will not be used in the operation.
+        symmetry: a string that describes the symmetry of the indices. For example,
+            `abba` means the first and the fourth indices are symmetric, and the
+            second and the third indices are symmetric. Default is None, which means
+            there is no symmetry between
+
+    Returns:
+        A symmetric traceless tensor of the same rank as the input tensor.
+    """
+    return remove_trace(symmetrize(t, start_dim, symmetry), start_dim)
+
+
+def symmetrize(
+    t: Tensor, start_dim: int = 0, symmetry: str = None, mode: str = "mean"
+) -> Tensor:
+    """
+    Symmetrize a tensor.
+
+    The symmetrization is done by averaging/sum over unique permutations of the indices,
+    considering the symmetry of the indices.
+
+    Args:
+        t: The tensor to symmetrize
+        start_dim: the starting dimension to perform the operation. Dimensions before
+            `start_dim` will not be used in the operation.
+        symmetry: A string that describes the symmetry of the indices. For example,
+            `abba` means the first and the fourth indices are symmetric, and the
+            second and the third indices are symmetric. Default is None, which means
+            there is no symmetry between the indices.
+        mode: `mean` or `sum`. If `mean`, the tensor is averaged over the permutations.
+            If `sum`, the tensor is summed over the permutations.
+
+    Returns:
+        The symmetrized tensor.
+    """
+
+    # fully symmetrize the tensor
+    if symmetry is None:
+        permutations = itertools.permutations(range(start_dim, t.ndim))
+        if start_dim > 0:
+            prefix = list(range(start_dim))
+            permutations = [prefix + list(p) for p in permutations]
+
+    # symmetrize with the given symmetry
+    else:
+        assert (
+            start_dim + len(symmetry) == t.ndim
+        ), "The length of the symmetry string must match the tensor shape."
+        permutations = get_permutations(symmetry, start_dim)
+
+    if mode == "mean":
+        u = torch.mean(torch.stack([t.permute(p) for p in permutations]), dim=0)
+    elif mode == "sum":
+        u = torch.sum(torch.stack([t.permute(p) for p in permutations]), dim=0)
+    else:
+        raise ValueError("The mode must be either 'mean' or 'sum'.")
+
+    return u
+
+
+def symmetrize_2(t: Tensor, num_delta: int, start_dim: int = 0) -> Tensor:
+    """
+    Symmetrize a tensor that is obtained by contracting a symmetric tensor with deltas.
+
+    Symmetrization is done by summation over unique permutations of the indices,
+    considering the three set of symmetries. See `get_permutations_2` for more details.
+
+    Args:
+        t: the tensor
+        num_delta: number of deltas used to obtain the tensor
+        start_dim: the starting dimension to perform the operation. Dimensions before
+            `start_dim` will not be used in the operation.
+
+    Returns:
+        A symmetrized tensor.
+    """
+    # rank of the symmetric tensor, after considering the start_dim
+    m = t.ndim - start_dim
+
+    # Get unique permutations
+    permutations = get_permutations_2(m, num_delta, start_dim)
+
+    # Sum over the permutations
+    u = torch.sum(torch.stack([t.permute(p) for p in permutations]), dim=0)
+
+    return u
+
+
+# TODO, this can be refactored to be similar as unit_vector.py
+def remove_trace(u: Tensor, start_dim: int = 0) -> Tensor:
+    """
+    Remove the trace of a symmetric tensors to get a natural tensor of the same rank.
+
+    Args:
+        u: a fully symmetric tensor
+        start_dim: the starting dimension to perform the operation. Dimensions before
+            `start_dim` will not be used in the operation.
+
+    This implements:
+    X_{ij\dots m} = U_{ij\dots m} + \sum_{d=1}^D (-1)^d \frac{(2m-2d-1)!!}{(2m-1)!!}
+    \{ \delta_{ij}\delta_{kl} \dots U_{rrss\dots m} \}
+    where:
+    U: fully symmetric tensor of rank m
+    X: natural tensor of rank m
+    D: D=m/2 if m is even, D=(m-1)/2 if m is odd
+    {} denotes fully symmetrization.
+
+    References:
+        1. Eq 10 of http://dx.doi.org/10.1080/00018737800101454
+        2. Cartesian tensors writeup by Mingjian Wen, which is an explicit form of the
+           above reference.
+
+    Returns:
+        A natural tensor of the same shape as the input tensor.
+    """
+    device = u.device
+
+    m = u.ndim - start_dim
+    D = m // 2
+
+    delta = dij(device)
+    coeff = 1
+    out = u
+    for d in range(1, D + 1):
+        rule = remove_trace_rule(m, d)
+
+        # Contract with multiple deltas to get a tensor of the same rank as u
+        prod = torch.einsum(rule, u, *([delta] * d))
+
+        prod = symmetrize_2(prod, num_delta=d, start_dim=start_dim)
+
+        # coeff = (-1) ** d / double_factorial(2 * m - 1, 2 * m - 2 * d - 1 + 2, device)
+        coeff = -coeff / (2 * m - 2 * d + 1)
+
+        out = out + coeff * prod
+
+    return out
 
 
 # TODO, this is a generalization of get_sym_rule_2 and get_sym_rule_3 in tensor_product1.py
@@ -222,3 +372,26 @@ def get_permutations_2(m: int, num_delta: int, start_dim: int = 0) -> list[list[
     perms = get_permutations_delta(symmetry, delta_indices, start_dim)
 
     return perms
+
+
+def remove_trace_rule(m: int, d: int) -> str:
+    """
+    Get the contraction rule to remove the trace of a symmetric tensor.
+
+    Note, d <= m/2.
+
+    Args:
+        m: rank of the symmetric tensor
+        d: the number of delta
+
+    Returns:
+        rule: the contraction rule
+        symmetry: the symmetry of the indices
+    """
+    u_contracted = "".join(repeat_double_index(d))
+    u_remain = letter_index(m - 2 * d, start=d)
+    delta = double_index(d, start=m - d)
+
+    return (
+        f"...{u_contracted}{u_remain},{','.join(delta)}->...{u_remain}{''.join(delta)}"
+    )

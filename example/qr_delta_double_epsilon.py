@@ -75,10 +75,9 @@ import itertools
 import torch
 from example.utils import tp_with_delta_epsilon
 
-from natt.ops import symmetrize_and_remove_trace
-from natt.symmetrize import get_permutations_2
-from natt.utils import is_symmetric_traceless, letter_index
 from natt.qr import find_independent_tensors
+from natt.symmetrize import get_permutations_2, symmetrize_and_remove_trace
+from natt.utils import is_symmetric_traceless, letter_index
 
 
 def get_rules(rank: int, num_delta: int) -> list[tuple[str, str]]:

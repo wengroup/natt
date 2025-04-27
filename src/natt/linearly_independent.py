@@ -13,14 +13,11 @@ from collections import Counter, defaultdict
 from fractions import Fraction
 from functools import reduce
 from math import gcd
-from pprint import pprint
 
 import torch
 from torch import Tensor
 
 from natt.matrix import matrix_inverse, matrix_multiply, matrix_transpose
-from natt.ops import symmetrize_and_remove_trace
-from natt.qr import find_independent_tensors
 from natt.sym import symmetrize
 from natt.symbolic_tensor import (
     CartesianTensor,
@@ -32,8 +29,8 @@ from natt.symbolic_tensor import (
     multiply_2,
     simplify_2,
 )
-from natt.symmetrize import get_permutations_2
-from natt.utils import dij, eijk, is_symmetric, is_traceless, letter_index
+from natt.symmetrize import get_permutations_2, symmetrize_and_remove_trace
+from natt.utils import dij, eijk, letter_index
 
 
 def get_E(j: int, s_letters: str = None) -> LinearCombination:
@@ -183,7 +180,7 @@ def create_delta_tensors(rule: list[str], factor: int | Fraction = 1) -> TensorP
     return tp
 
 
-def get_E_rules(j: int, t: int, s_letters: str = None) -> list[dict[str : list[str]]]:
+def get_E_rules(j: int, t: int, s_letters: str = None) -> list[dict[str, list[str]]]:
     """
     Rules for E(j|j): d_{rs}^{j-2t} d_{rr}^t d_{ss}^t.
 
@@ -371,7 +368,8 @@ def get_G_rules_odd_j0(j, n):
     """
     For j = 0, and odd n, the rules for G(n|0) are different from the general case.
 
-    Here we do a trivial contraction with epsilon tensor, instead of a double contraction in the general case.
+    Here we do a trivial contraction with epsilon tensor, instead of a double
+    contraction in the general case.
     """
     assert j == 0, f"j must be 0, got {j}"
     assert n % 2 == 1, f"n must be odd, got {n}"
@@ -878,20 +876,6 @@ def extract(H: LinearCombination, T: Tensor = None) -> Tensor:
     return torch.stack(output).sum(dim=0)
 
 
-def check_one(prod):
-    evaluated = evaluate_delta_2(prod)
-    print("@@@ evaluated:", evaluated)
-
-    canolized = canonize_delta_indices_2(evaluated)
-    print("@@@ canolized:", canolized)
-
-    ordered = order_tp_components_2(canolized)
-    print("@@@ ordered:", ordered)
-
-    combined = combine_terms(ordered)
-    print("@@@ combined:", combined)
-
-
 def find_matrix_factorization(
     A: list[list[Fraction]],
 ) -> tuple[Fraction, list[list[int]]]:
@@ -1062,224 +1046,3 @@ def get_K(
         all_K.append(K)
 
     return all_K
-
-
-if __name__ == "__main__":
-
-    # ################################################################################
-    # odd n-j
-    # j = 2
-    # n = 3
-    # all_G = get_G_odd(j, n)
-
-    # G1 = all_G[0]
-    # G2 = all_G[1]
-    # G3 = all_G[2]
-    # print("G_1:", G1)
-    # print("G_2:", G2)
-    # print("G_3:", G3)
-
-    # G1_shifted = shift_index_2(G1, shift=12)
-    # G2_shifted = shift_index_2(G2, shift=4)
-    # G3_shifted = shift_index_2(G3, shift=8)
-    # print("G_1, after shift:", G1_shifted)
-    # print("G_2, after shift:", G2_shifted)
-    # print("G_3, after shift:", G3_shifted)
-    #
-    # # check they are linearly independent
-    # prod = contract_G(G1, G2_shifted, "ABC", "EFG")
-    # print("=" * 40)
-    # check_one(prod)
-    #
-    # prod = contract_G(G1, G3_shifted, "ABC", "IJK")
-    # print("=" * 40)
-    # check_one(prod)
-    #
-    # prod = contract_G(G2_shifted, G3_shifted, "EFG", "IJK")
-    # print("=" * 40)
-    # check_one(prod)
-    #
-    # prod = contract_G(G1, G1_shifted, "ABC", "MNO")
-    # print("=" * 40)
-    # check_one(prod)
-
-    ################################################################################
-    # # even n-j
-    # j = 4
-    # n = 4
-    # all_G = get_G_even(j, n)
-    #
-    # print("number of G", len(all_G))
-
-    # G1 = all_G[0]
-    # G2 = all_G[1]
-    # G3 = all_G[2]
-    # print("G_1:", G1)
-    # print("G_2:", G2)
-    # print("G_3:", G3)
-    #
-    # G1_shifted = shift_index_2(G1, shift=12)
-    # G2_shifted = shift_index_2(G2, shift=4)
-    # G3_shifted = shift_index_2(G3, shift=8)
-    # print("G_1, after shift:", G1_shifted)
-    # print("G_2, after shift:", G2_shifted)
-    # print("G_3, after shift:", G3_shifted)
-    #
-    # # check they are linearly independent
-    # prod = contract_G(G1, G2_shifted, "ABCD", "EFGH")
-    # print("=" * 40)
-    # check_one(prod)
-    #
-    # prod = contract_G(G1, G3_shifted, "ABCD", "IJKL")
-    # print("=" * 40)
-    # check_one(prod)
-    #
-    # prod = contract_G(G2_shifted, G3_shifted, "EFGH", "IJKL")
-    # print("=" * 40)
-    # check_one(prod)
-    #
-    # prod = contract_G(G1, G1_shifted, "ABCD", "MNOP")
-    # print("=" * 40)
-    # check_one(prod)
-
-    ################################################################################
-
-    # TODO, this function has been reimplemented in tabulate.py: get_G_H_S()
-    def extract_and_embed(j: int, n: int, T: Tensor):
-        """
-        Extract the natural tensor X(j) from T(n) and embed it back to get S(n).
-
-        Args:
-            j: weight
-            n: dim of the space T is in
-            T: A general tensor in space n.
-
-        Returns:
-            All X^p,j tensors, which are the natural tensors in space j.
-            All embedding tensors S^p(n), whose corresponding G^p(n|j) are linearly
-            independent.
-        """
-        print("=" * 80)
-        print(f"j={j}, n={n}")
-
-        # create G mapping operator
-        if (n - j) % 2 == 0:
-            all_G = get_G_even(j, n)
-        else:
-            all_G = get_G_odd(j, n)
-        print("Number of candidate G:", len(all_G))
-
-        # Determine g_pq for all G
-        # TODO, this block can be removed (not needed for selecting the independent ones)
-        g_pq = get_g_matrix(j, n, all_G)
-        if len(all_G) > 1:
-            c, g_pq_int = find_matrix_factorization(g_pq)
-        else:
-            c = 1
-            g_pq_int = g_pq
-        print("g_pq matrix for all G:")
-        print("c:", c)
-        print("matrix:")
-        pprint(g_pq_int)
-
-        # Get S tensors, embedding space j to space n
-        all_S = [embed(j, G) for G in all_G]
-
-        # Get linearly independent G tensors
-        _, independent_indices = find_independent_tensors(all_S)
-
-        independent_G = [all_G[i] for i in independent_indices]
-
-        print("Number of independent G:", len(independent_G))
-        print("Selected independent indices:", independent_indices)
-        for p, G in enumerate(independent_G):
-            print(f"p={p}, G=")
-            print(G)
-
-        # Get g_pq matrix for independent G
-        g_pq = get_g_matrix(j, n, independent_G)
-        if len(independent_G) > 1:
-            # Note, c may not be 1, but g_pq should consist of the factor c
-            # Here we use g_pq_int just for nice printing and visualization.
-            # And we should use g_pq for the actual computation.
-            c, g_pq_int = find_matrix_factorization(g_pq)
-        else:
-            c = 1
-            g_pq_int = g_pq
-        print("g_pq matrix for independent ones:")
-        print("c:", c)
-        print("matrix:")
-        pprint(g_pq_int)
-
-        # Get h_pq matrix
-        h_pq = matrix_inverse(g_pq)
-        print("h_pq:")
-        pprint(h_pq)
-
-        # Get H tensors, extracting from the space n to space j
-        all_H = get_H(h_pq, independent_G)
-        for p, H in enumerate(all_H):
-            print(f"p={p}, H=")
-            print(H)
-
-        ########################################
-        # symbolic S
-        for i, (G, H) in enumerate(zip(independent_G, all_H)):
-            # Shift Upper letters of H to distinguish those from G
-            H = shift_index_2(H, n, letter_index(24, upper_case=True))
-
-            G = simplify_2(G)
-            H = simplify_2(H)
-            S = multiply_2(G, H)
-            S = simplify_2(S)
-
-            print("=" * 10)
-            print("Seniority:", i)
-            print("G", G)
-            print("H", H)
-            print("S", S)
-
-        ########################################
-        # numerical S
-
-        # Extracting X from T
-        all_X = [extract(H, T) for H in all_H]
-
-        for X in all_X:
-            assert is_symmetric(X), f"X={X} is not symmetric"
-            assert is_traceless(X), f"X={X} is not traceless"
-
-        # Embed X back to space n
-        all_S = [embed(j, G, X) for G, X in zip(independent_G, all_X)]
-
-        return all_S
-
-    ################################################################################
-    # Extract and re-embed, and then check the sum of S (from different weight j and
-    # seniority n) is equal to T.
-    ################################################################################
-
-    # create a T of rank n
-    n = 1
-    torch.manual_seed(35)
-    T = torch.randn(3**n).reshape([3] * n)
-
-    # check the sum of all extract and embed is equal to the original T
-    all_S = []
-    for j in range(n + 1):
-        S_j = extract_and_embed(j, n, T)
-        all_S.extend(S_j)
-
-    sum_S = torch.stack(all_S).sum(dim=0)
-
-    print("=" * 40)
-    if torch.allclose(sum_S, T, atol=1e-5, rtol=1e-5):
-        print("The sum of S is equal to T")
-        print("Sum of diff:", (sum_S - T).sum())
-        print("Mean absolute diff:", torch.abs((sum_S - T)).mean())
-    else:
-        print("The sum of S is not equal to T")
-        print("Sum of S:", sum_S.sum())
-        print("Sum of T:", T.sum())
-        print("Sum of diff:", (sum_S - T).sum())
-        print("Mean absolute diff:", torch.abs((sum_S - T)).mean())
