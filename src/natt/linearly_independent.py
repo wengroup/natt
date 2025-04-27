@@ -9,7 +9,7 @@ References:
 """
 
 import itertools
-from collections import Counter, defaultdict
+from collections import Counter
 from fractions import Fraction
 from functools import reduce
 from math import gcd
@@ -18,7 +18,7 @@ import torch
 from torch import Tensor
 
 from natt.matrix import matrix_inverse, matrix_multiply, matrix_transpose
-from natt.ops import multiply_2, simplify_2
+from natt.ops import multiply_2, simplify_linear_combination
 from natt.sym import symmetrize
 from natt.symbolic import (
     CartesianTensor,
@@ -455,31 +455,33 @@ def shift_index_2(
     return LinearCombination(*components)
 
 
-def evaluate_delta(
-    tensor: CartesianTensor | TensorProduct,
-) -> CartesianTensor | TensorProduct:
-    """Evaluate delta_ii to 3."""
+# # TODO, Is this the same as simplify_delta?
+# def evaluate_delta(
+#     tensor: CartesianTensor | TensorProduct,
+# ) -> CartesianTensor | TensorProduct:
+#     """Evaluate delta_ii to 3."""
+#
+#     def _evaluate(t: CartesianTensor):
+#         if isinstance(t, Delta) and len(set(t.indices)) == 1:
+#             return Scalar(t.factor * 3)
+#         else:
+#             return t
+#
+#     if isinstance(tensor, CartesianTensor):
+#         return _evaluate(tensor)
+#
+#     elif isinstance(tensor, TensorProduct):
+#         components = [_evaluate(t) for t in tensor]
+#         return TensorProduct(*components, factor=tensor.factor)
+#     else:
+#         raise ValueError("Unexpected type")
+#
 
-    def _evaluate(t: CartesianTensor):
-        if isinstance(t, Delta) and len(set(t.indices)) == 1:
-            return Scalar(t.factor * 3)
-        else:
-            return t
-
-    if isinstance(tensor, CartesianTensor):
-        return _evaluate(tensor)
-
-    elif isinstance(tensor, TensorProduct):
-        components = [_evaluate(t) for t in tensor]
-        return TensorProduct(*components, factor=tensor.factor)
-    else:
-        raise ValueError("Unexpected type")
-
-
-def evaluate_delta_2(tensor: LinearCombination) -> LinearCombination:
-    """Evaluate a linear combination of tensors."""
-    components = [evaluate_delta(t) for t in tensor]
-    return LinearCombination(*components)
+# def evaluate_delta_2(tensor: LinearCombination) -> LinearCombination:
+#     """Evaluate a linear combination of tensors."""
+#     components = [evaluate_delta(t) for t in tensor]
+#     return LinearCombination(*components)
+#
 
 
 def contract_G(
@@ -498,132 +500,132 @@ def contract_G(
     contraction_delta = [Delta(i + j) for i, j in zip(G1_indices, G2_indices)]
     contraction_delta = TensorProduct(*contraction_delta)
     prod = multiply_2(G1, G2, contraction_delta)
-    simplified = simplify_2(prod)
+    simplified = simplify_linear_combination(prod)
 
     return simplified
 
 
-# TODO, this, and the below few functions, has been reimplemented in
-#  TensorProduct.canonize()
-def canonize_delta_indices(
-    tensor: CartesianTensor | TensorProduct,
-) -> CartesianTensor | TensorProduct:
-    """
-    Let the indices of delta tensors be sorted.
+# # TODO, this, and the below few functions, has been reimplemented in
+# #  TensorProduct.canonize()
+# def canonize_delta_indices(
+#     tensor: CartesianTensor | TensorProduct,
+# ) -> CartesianTensor | TensorProduct:
+#     """
+#     Let the indices of delta tensors be sorted.
+#
+#     For example, delta_ab -> delta_ab, delta_ba -> delta_ab.
+#     """
+#
+#     def _canonize(t: CartesianTensor):
+#         if isinstance(t, Delta):
+#             indices = "".join(sorted(t.indices))
+#             return Delta(indices, factor=t.factor)
+#         else:
+#             return t
+#
+#     if isinstance(tensor, CartesianTensor):
+#         return _canonize(tensor)
+#     elif isinstance(tensor, TensorProduct):
+#         components = [_canonize(t) for t in tensor]
+#         return TensorProduct(*components, factor=tensor.factor)
+#     else:
+#         raise ValueError("Unexpected type")
+#
+#
+# def canonize_delta_indices_2(tensor: LinearCombination) -> LinearCombination:
+#     components = [canonize_delta_indices(t) for t in tensor]
+#     return LinearCombination(*components)
+#
 
-    For example, delta_ab -> delta_ab, delta_ba -> delta_ab.
-    """
+# def order_tp_components(tp: TensorProduct) -> TensorProduct:
+#     """Order the components of tensor product according to string representation.
+#
+#     For example,
+#     delta_ab delta_cd -> delta_ab delta_cd
+#     delta_cd delta_ab -> delta_ab delta_cd
+#     """
+#     # the tensor product is just a scalar factor
+#     if len(tp) == 0:
+#         return tp
+#
+#     symbols = [t.symbol for t in tp]
+#     indices = [t.indices for t in tp]
+#
+#     str_rep = [f"{s}_{i}" for s, i in zip(symbols, indices)]
+#
+#     # sort the components according to the sorted string representation
+#     sorted_comp, _ = zip(*sorted(zip(tp.components, str_rep), key=lambda x: x[1]))
+#
+#     # create new to using the sorted symbols and indices
+#     new_tp = TensorProduct(*sorted_comp, factor=tp.factor)
+#
+#     return new_tp
 
-    def _canonize(t: CartesianTensor):
-        if isinstance(t, Delta):
-            indices = "".join(sorted(t.indices))
-            return Delta(indices, factor=t.factor)
-        else:
-            return t
-
-    if isinstance(tensor, CartesianTensor):
-        return _canonize(tensor)
-    elif isinstance(tensor, TensorProduct):
-        components = [_canonize(t) for t in tensor]
-        return TensorProduct(*components, factor=tensor.factor)
-    else:
-        raise ValueError("Unexpected type")
-
-
-def canonize_delta_indices_2(tensor: LinearCombination) -> LinearCombination:
-    components = [canonize_delta_indices(t) for t in tensor]
-    return LinearCombination(*components)
-
-
-def order_tp_components(tp: TensorProduct) -> TensorProduct:
-    """Order the components of tensor product according to string representation.
-
-    For example,
-    delta_ab delta_cd -> delta_ab delta_cd
-    delta_cd delta_ab -> delta_ab delta_cd
-    """
-    # the tensor product is just a scalar factor
-    if len(tp) == 0:
-        return tp
-
-    symbols = [t.symbol for t in tp]
-    indices = [t.indices for t in tp]
-
-    str_rep = [f"{s}_{i}" for s, i in zip(symbols, indices)]
-
-    # sort the components according to the sorted string representation
-    sorted_comp, _ = zip(*sorted(zip(tp.components, str_rep), key=lambda x: x[1]))
-
-    # create new to using the sorted symbols and indices
-    new_tp = TensorProduct(*sorted_comp, factor=tp.factor)
-
-    return new_tp
-
-
-def order_tp_components_2(tensor: LinearCombination) -> LinearCombination:
-    """Order the components of tensor product according to string representation."""
-    out = []
-    for t in tensor:
-        if isinstance(t, TensorProduct):
-            out.append(order_tp_components(t))
-        else:
-            out.append(t)
-    return LinearCombination(*out)
-
-
-# TODO, this has been reimplemented in simplify_2()
-def combine_terms(tensor: LinearCombination) -> LinearCombination:
-    """
-    Combine terms with the same indices.
-
-    TODO, This currently only works for delta tensors.
-    """
-
-    # def is_delta_tp_equal(tp1: TensorProduct, tp2: TensorProduct) -> bool:
-    #     """
-    #     Check if tow tensor products made only of delta tensors are equal.
-    #
-    #     For example, delta_ab delta_cd == delta_cd delta_ab.
-    #     """
-    #     if len(tp1) != len(tp2):
-    #         return False
-    #
-    #     # check the set of indices are the same
-    #     return {t.indices for t in tp1} == {t.indices for t in tp2}
-
-    def get_str_rep(tp: TensorProduct) -> str:
-        """
-        Get a string representation of a tensor product.
-
-        Does not consider factor.
-
-        For example, delta_ab delta_cd -> "ab-cd".
-        """
-        return "-".join(sorted(t.indices for t in tp))
-
-    def combine(*tps: TensorProduct) -> TensorProduct:
-        """Combine multiple equal tensor products."""
-        factor = sum(t.factor for t in tps)
-        return TensorProduct(*(tps[0]), factor=factor)
-
-    # group the tensors with the same indices
-    grouped = defaultdict(list)
-    for t in tensor:
-        grouped[get_str_rep(t)].append(t)
-
-    # we loop over sorted keys to make the order deterministic
-    all_combined = []
-    for rep in sorted(grouped.keys()):
-        tps = grouped[rep]
-        if len(tps) > 1:
-            all_combined.append(combine(*tps))
-        else:
-            all_combined.extend(tps)
-
-    return LinearCombination(*all_combined)
+#
+# def order_tp_components_2(tensor: LinearCombination) -> LinearCombination:
+#     """Order the components of tensor product according to string representation."""
+#     out = []
+#     for t in tensor:
+#         if isinstance(t, TensorProduct):
+#             out.append(order_tp_components(t))
+#         else:
+#             out.append(t)
+#     return LinearCombination(*out)
 
 
-def scalar_factor(t1: LinearCombination, t2: LinearCombination) -> Fraction | None:
+# # TODO, this has been reimplemented in simplify_2()
+# def combine_terms(tensor: LinearCombination) -> LinearCombination:
+#     """
+#     Combine terms with the same indices.
+#
+#     TODO, This currently only works for delta tensors.
+#     """
+#
+#     # def is_delta_tp_equal(tp1: TensorProduct, tp2: TensorProduct) -> bool:
+#     #     """
+#     #     Check if tow tensor products made only of delta tensors are equal.
+#     #
+#     #     For example, delta_ab delta_cd == delta_cd delta_ab.
+#     #     """
+#     #     if len(tp1) != len(tp2):
+#     #         return False
+#     #
+#     #     # check the set of indices are the same
+#     #     return {t.indices for t in tp1} == {t.indices for t in tp2}
+#
+#     def get_str_rep(tp: TensorProduct) -> str:
+#         """
+#         Get a string representation of a tensor product.
+#
+#         Does not consider factor.
+#
+#         For example, delta_ab delta_cd -> "ab-cd".
+#         """
+#         return "-".join(sorted(t.indices for t in tp))
+#
+#     def combine(*tps: TensorProduct) -> TensorProduct:
+#         """Combine multiple equal tensor products."""
+#         factor = sum(t.factor for t in tps)
+#         return TensorProduct(*(tps[0]), factor=factor)
+#
+#     # group the tensors with the same indices
+#     grouped = defaultdict(list)
+#     for t in tensor:
+#         grouped[get_str_rep(t)].append(t)
+#
+#     # we loop over sorted keys to make the order deterministic
+#     all_combined = []
+#     for rep in sorted(grouped.keys()):
+#         tps = grouped[rep]
+#         if len(tps) > 1:
+#             all_combined.append(combine(*tps))
+#         else:
+#             all_combined.extend(tps)
+#
+#     return LinearCombination(*all_combined)
+
+
+def get_scalar_factor(t1: LinearCombination, t2: LinearCombination) -> Fraction | None:
     """
     Check if two tensors are scalar multiples of each other.
 
@@ -708,9 +710,10 @@ def get_g_pq(
         q_idx = q_idx[:-1]
 
     contracted = contract_G(G_p, G_q, p_idx, q_idx)
-    contracted = combine_terms(
-        order_tp_components_2(canonize_delta_indices_2(evaluate_delta_2(contracted)))
-    )
+    # contracted = combine_terms(
+    #     order_tp_components_2(canonize_delta_indices_2(evaluate_delta_2(contracted)))
+    # )
+    contracted = simplify_linear_combination(contracted)
 
     # in the contracted tensor, all upper case indices s1, ... sn are contracted.
     # To ensure contracted and E_jj using the same set of indices, we provide the
@@ -721,11 +724,10 @@ def get_g_pq(
     remaining_indices = "".join(sorted(remaining_indices))
 
     E_jj = get_E(j, remaining_indices)
-    E_jj = order_tp_components_2(E_jj)
+    E_jj = simplify_linear_combination(E_jj)
 
-    # Compare contracted and E_jj to get the factor  g_pq
-
-    factor = scalar_factor(contracted, E_jj)
+    # Compare contracted and E_jj to get the factor g_pq
+    factor = get_scalar_factor(contracted, E_jj)
 
     return factor
 

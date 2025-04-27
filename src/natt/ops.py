@@ -415,7 +415,7 @@ def simplify_epsilon(
     return product, False
 
 
-def simplify(tp: TensorProduct) -> LinearCombination:
+def simplify_tensor_product(tp: TensorProduct) -> LinearCombination:
     """
     Simplify a tensor product by apply delta and epsilon rules.
 
@@ -483,8 +483,9 @@ def simplify(tp: TensorProduct) -> LinearCombination:
     return simplified
 
 
-def simplify_2(tensor: LinearCombination) -> LinearCombination:
+def simplify_linear_combination(tensor: LinearCombination) -> LinearCombination:
     """Simplify a linear combination of tensors.
+
     1. Applying delta and epsilon rules.
     2. Removing zero tensors or tensor products.
     3. Combine tensor products that are of the same form.
@@ -496,7 +497,7 @@ def simplify_2(tensor: LinearCombination) -> LinearCombination:
         if isinstance(t, CartesianTensor):
             simplified.append(t)
         elif isinstance(t, TensorProduct):
-            out = simplify(t)
+            out = simplify_tensor_product(t)
             simplified.extend(out)
         else:
             raise ValueError("Unexpected type")
@@ -615,7 +616,7 @@ if __name__ == "__main__":
     #         "l": "3",
     #     }
     # )
-    evaluated = simplify_2(tensors)
+    evaluated = simplify_linear_combination(tensors)
     print("@@@", evaluated)
 
     evaluated_non_zero = LinearCombination(*[t for t in evaluated if t.factor != 0])

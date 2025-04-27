@@ -30,7 +30,7 @@ from natt.linearly_independent import (
     shift_index_2,
 )
 from natt.matrix import float_matrix, fraction_matrix
-from natt.ops import multiply_2, simplify_2
+from natt.ops import multiply_2, simplify_linear_combination
 from natt.qr import find_independent_tensors
 from natt.symbolic import Delta, Epsilon, LinearCombination, TensorProduct
 from natt.utils import dij, eijk, letter_index
@@ -186,14 +186,14 @@ def get_G_H_S_of_j(j: int, n: int, symmetry: str = None) -> tuple[
     all_H = []
     all_S = []
     for i, (G, H) in enumerate(zip(independent_G, independent_H)):
-        G = simplify_2(G)
+        G = simplify_linear_combination(G)
 
         # Shift upper letters of H to distinguish those from G
         H = shift_index_2(H, n, letter_index(24, upper_case=True))
-        H = simplify_2(H)
+        H = simplify_linear_combination(H)
 
         S = multiply_2(G, H)
-        S = simplify_2(S)
+        S = simplify_linear_combination(S)
 
         all_G.append(G)
         all_H.append(H)

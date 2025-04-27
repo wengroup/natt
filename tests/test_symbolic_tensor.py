@@ -7,7 +7,7 @@ from natt.ops import (
     contract_epsilon_delta,
     contract_two_epsilon,
     contract_with_delta,
-    simplify,
+    simplify_tensor_product,
     symmetrize,
 )
 from natt.symbolic import (
@@ -135,41 +135,41 @@ def test_simplify():
     T1 = CartesianTensor("ijkl", factor=4)
 
     tp = TensorProduct(d1, d2)
-    tp_s = simplify(tp)
+    tp_s = simplify_tensor_product(tp)
     assert tp_s.to_str_list() == ["+4 δ_ik"]
 
     tp = TensorProduct(d1, e1)
-    tp_s = simplify(tp)
+    tp_s = simplify_tensor_product(tp)
     assert len(tp_s) == 0
 
     tp = TensorProduct(d1, e2)
-    tp_s = simplify(tp)
+    tp_s = simplify_tensor_product(tp)
     assert tp_s.to_str_list() == ["+6 ε_jkl"]
 
     tp = TensorProduct(d2, e2)
-    tp_s = simplify(tp)
+    tp_s = simplify_tensor_product(tp)
     assert tp_s.to_str_list() == ["+6 ε_ijl"]
 
     tp = TensorProduct(e1, e2)
-    tp_s = simplify(tp)
+    tp_s = simplify_tensor_product(tp)
     assert tp_s.to_str_list() == ["-18 δ_jl"]
 
     tp = TensorProduct(e1, e3)
-    tp_s = simplify(tp)
+    tp_s = simplify_tensor_product(tp)
     assert tp_s.to_str_list() == ["+9 δ_jl δ_km", "-9 δ_jm δ_kl"]
 
     tp = TensorProduct(d1, e1, e3)
-    tp_s = simplify(tp)
+    tp_s = simplify_tensor_product(tp)
     assert tp_s.to_str_list() == ["+18 δ_km δ_il", "-18 δ_kl δ_im"]
 
     tp = TensorProduct(d1, T1)
-    tp_s = simplify(tp)
+    tp_s = simplify_tensor_product(tp)
     assert tp_s.to_str_list() == ["+8 T_jjkl"]
 
     tp = TensorProduct(d1, e1, e2, T1)
-    tp_s = simplify(tp)
+    tp_s = simplify_tensor_product(tp)
     assert tp_s.to_str_list() == ["-144 T_ljkl"]
 
     tp = TensorProduct(d1, e1, e3, T1)
-    tp_s = simplify(tp)
+    tp_s = simplify_tensor_product(tp)
     assert tp_s.to_str_list() == ["+72 T_ljml", "-72 T_mjll"]
