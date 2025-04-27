@@ -10,6 +10,29 @@ from torch import Tensor
 from natt.utils import dij, double_index, letter_index, repeat_double_index
 
 
+def symmetrize_via_permutation(
+    t: Tensor, perms: list[list[int]], mode: str = "sum"
+) -> Tensor:
+    """
+    Symmetrize a tensor by summing/averaging over all permutations.
+
+    Args:
+        t: The tensor to symmetrize.
+        perms: Permutations of the indices for symmetrization.
+        mode: The mode of symmetrization. For `sum`, summation is performed over all
+            permutations. For `mean`, the average is taken.
+
+    Returns:
+        The symmetrized tensor.
+    """
+    if mode == "sum":
+        return torch.stack([t.permute(p) for p in perms]).sum(dim=0)
+    elif mode == "mean":
+        return torch.stack([t.permute(p) for p in perms]).mean(dim=0)
+    else:
+        raise ValueError(f"Unknown mode: {mode}")
+
+
 def symmetrize_and_remove_trace(
     t: Tensor, start_dim: int = 0, symmetry: str = None
 ) -> Tensor:

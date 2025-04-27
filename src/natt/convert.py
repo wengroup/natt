@@ -7,6 +7,8 @@ from torch import Tensor
 from natt.tabulate import get_G_H_S
 
 
+# TODO, this function should be reimplemented for simplicity, not consider batching
+#   and such. In `carten` we have a batched version
 class Converter(nn.Module):
     """
     Convertor to map between ordinary cartesian tensor T and natural tensors X.
