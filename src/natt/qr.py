@@ -16,7 +16,7 @@ def find_independent_tensors(tensors: list[Tensor], tolerance=1e-4):
     # Check all diagonal elements
     independent_indices = []
     for i in range(len(vectors)):
-        # TODO, seems not OK to only check diagonal
+        # TODO, double check that it is OK to only check diagonal
         if torch.abs(R[i, i]) > tolerance:
             independent_indices.append(i)
 
@@ -49,7 +49,7 @@ def find_independent_tensors_2(tensors: list[Tensor], tolerance=1e-4):
 
     # Check all diagonal elements
     for i in range(len(vectors)):
-        # TODO, seems not OK to only check diagonal
+        # TODO, double check that it is OK to only check diagonal
         if torch.abs(R[i, i]) > tolerance:
             independent_indices.append(i)
             print(f"\nVector {i + 1}: Independent (diagonal element = {R[i, i]:.10f})")

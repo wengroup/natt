@@ -215,9 +215,63 @@ def get_permutations(symmetry: str, start_dim: int = 0) -> list[list[int]]:
     return unique_perms
 
 
-# TODO, we need to rename this to make it general.
+def get_permutations_2(m: int, num_delta: int, start_dim: int = 0) -> list[list[int]]:
+    """
+
+    Get the unique permutations of the tensor product of a symmetric tensor and deltas.
+
+    For example, we know
+    {U_rrss \delta_ij \delta_kl}
+    = U_rrss \delta_ij \delta_kl
+    + U_rsrs \delta_ij \delta_kl
+    + U_rssr \delta_ij \delta_kl
+
+    This is equivalent to
+    1. First get V_ijkl = U_rrss \delta_ij \delta_kl
+    2. Then permute V_ijkl to get V_ikjl and V_iklj
+    3. Sum them up to get the result, i.e.
+        {U_rrss \delta_ij \delta_kl} = V_ijkl + V_ikjl + V_iklj
+
+
+    This function find the permutations of the indices in V.
+    There are two types of symmetry to consider in the permutations:
+    a. Minor symmetry: the symmetry of the two indices in each delta tensor.
+       For example, V_ijkl = V_ijlk = V_jikl = V_jilk
+    b. Major symmetry: the symmetry of indices between the deltas. For example,
+       V_ijkl = V_klij
+
+    In addition, we consider another symmetry:
+    c. The symmetry of the remaining indices of the tensor, e.g. in U_rrst\delta_ij,
+        the indices r and s are symmetric.
+
+    Args:
+        m: the rank of the symmetric tensor
+        num_delta: the number of delta tensors to be contracted
+        start_dim: the starting dimension to perform the operation. Dimensions before
+            `start_dim` will not be used in the operation.
+
+    Returns:
+        Each inner list contains the permutation indices for symmetrization.
+    """
+
+    num_remain = m - 2 * num_delta
+    assert num_remain >= 0, "The number of remaining indices must be non-negative."
+
+    # Construct the symmetry pattern, e.g., zzaabb
+    u_remain = "z" * num_remain
+    delta = "".join(repeat_double_index(num_delta))
+    symmetry = f"{u_remain}{delta}"
+
+    delta_indices = letter_index(num_delta)
+
+    perms = get_permutations_delta(symmetry, delta_indices, start_dim)
+
+    return perms
+
+
+# TODO, we can rename this to make it general.
 #  We can call this minor and major symmetries. just like elastic tensor.
-#  T delta_ij delta_kl = T delta_kl delta_ij we have minor symmetry between i and j, \
+#  T delta_ij delta_kl = T delta_kl delta_ij we have minor symmetry between i and j,
 #  and between k and l. We have major symmetry between (ij) and (kl).
 #  This is the same as the elastic tensor ((ij)(kl)).
 #  So, we can rename this function to make it more general.
@@ -318,60 +372,6 @@ def _canonize(ps: str, di: str) -> str:
     # For example, in `symmetry = xxyyaabb` and `delta_indices = ab`,
     # xxyy and yyxx are different.
     return "".join(str(ps.index(c)) if c in di else c for c in ps)
-
-
-def get_permutations_2(m: int, num_delta: int, start_dim: int = 0) -> list[list[int]]:
-    """
-
-    Get the unique permutations of the tensor product of a symmetric tensor and deltas.
-
-    For example, we know
-    {U_rrss \delta_ij \delta_kl}
-    = U_rrss \delta_ij \delta_kl
-    + U_rsrs \delta_ij \delta_kl
-    + U_rssr \delta_ij \delta_kl
-
-    This is equivalent to
-    1. First get V_ijkl = U_rrss \delta_ij \delta_kl
-    2. Then permute V_ijkl to get V_ikjl and V_iklj
-    3. Sum them up to get the result, i.e.
-        {U_rrss \delta_ij \delta_kl} = V_ijkl + V_ikjl + V_iklj
-
-
-    This function find the permutations of the indices in V.
-    There are two types of symmetry to consider in the permutations:
-    a. Minor symmetry: the symmetry of the two indices in each delta tensor.
-       For example, V_ijkl = V_ijlk = V_jikl = V_jilk
-    b. Major symmetry: the symmetry of indices between the deltas. For example,
-       V_ijkl = V_klij
-
-    In addition, we consider another symmetry:
-    c. The symmetry of the remaining indices of the tensor, e.g. in U_rrst\delta_ij,
-        the indices r and s are symmetric.
-
-    Args:
-        m: the rank of the symmetric tensor
-        num_delta: the number of delta tensors to be contracted
-        start_dim: the starting dimension to perform the operation. Dimensions before
-            `start_dim` will not be used in the operation.
-
-    Returns:
-        Each inner list contains the permutation indices for symmetrization.
-    """
-
-    num_remain = m - 2 * num_delta
-    assert num_remain >= 0, "The number of remaining indices must be non-negative."
-
-    # Construct the symmetry pattern, e.g., zzaabb
-    u_remain = "z" * num_remain
-    delta = "".join(repeat_double_index(num_delta))
-    symmetry = f"{u_remain}{delta}"
-
-    delta_indices = letter_index(num_delta)
-
-    perms = get_permutations_delta(symmetry, delta_indices, start_dim)
-
-    return perms
 
 
 def remove_trace_rule(m: int, d: int) -> str:
