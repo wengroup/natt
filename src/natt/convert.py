@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
-from natt.symbolic.tabulate import get_G_H_S
+from natt.tabulate import get_G_H_S
 
 
 class Converter(nn.Module):

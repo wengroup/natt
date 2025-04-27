@@ -78,7 +78,7 @@ from example.utils import tp_with_delta_epsilon
 from natt.core.reduce import symmetrize_and_remove_trace
 from natt.core.symmetrize import get_permutations_2
 from natt.core.utils import is_symmetric_traceless, letter_index
-from natt.utils import find_independent_tensors
+from natt.qr import find_independent_tensors
 
 
 def get_rules(rank: int, num_delta: int) -> list[tuple[str, str]]:

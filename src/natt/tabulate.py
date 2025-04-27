@@ -17,7 +17,7 @@ import numpy as np
 from monty.serialization import dumpfn
 
 from natt.core.utils import dij, eijk, letter_index
-from natt.symbolic.linearly_independent import (
+from natt.linearly_independent import (
     embed,
     get_G_even,
     get_g_matrix,
@@ -29,18 +29,15 @@ from natt.symbolic.linearly_independent import (
     matrix_inverse,
     shift_index_2,
 )
-from natt.symbolic.symbolic_tensor import (
+from natt.matrix import float_matrix, fraction_matrix
+from natt.qr import find_independent_tensors
+from natt.symbolic_tensor import (
     Delta,
     Epsilon,
     LinearCombination,
     TensorProduct,
     multiply_2,
     simplify_2,
-)
-from natt.symbolic.utils import (
-    find_independent_tensors,
-    float_matrix,
-    fraction_matrix,
 )
 
 
