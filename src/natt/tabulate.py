@@ -17,11 +17,18 @@ import torch
 from monty.serialization import dumpfn
 from torch import Tensor
 
-from natt.linearly_independent import (embed, get_G_even, get_g_matrix,
-                                       get_G_odd, get_H,
-                                       get_independent_H_coeff, get_K,
-                                       group_G_by_symmetry, matrix_inverse,
-                                       shift_index_2)
+from natt.linearly_independent import (
+    embed,
+    get_G_even,
+    get_g_matrix,
+    get_G_odd,
+    get_H,
+    get_independent_H_coeff,
+    get_K,
+    group_G_by_symmetry,
+    matrix_inverse,
+    shift_index_2,
+)
 from natt.matrix import float_matrix, fraction_matrix
 from natt.ops import multiply_2, simplify_linear_combination
 from natt.qr import find_independent_tensors
