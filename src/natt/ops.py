@@ -250,32 +250,6 @@ def symmetrize(
     return LinearCombination(*all_tensors)
 
 
-#
-# def is_zero(tensors: LinearCombination) -> bool:
-#     """
-#     Check whether a linear combination of tensors is zero.
-#     """
-#     # TODO, for now, we just check if the str representation of the positive ones
-#     #  and the negative ones are the same
-#     positive = []
-#     negative = []
-#     for t in tensors:
-#         if t.factor == 0:
-#             continue
-#         elif t.factor > 0:
-#             positive.append(t)
-#         else:
-#             negative.append(t)
-#
-#     # flip the sign of the negative ones
-#     negative = [-1 * t for t in negative]
-#
-#     pos_count = Counter([str(t) for t in positive])
-#     neg_count = Counter([str(t) for t in negative])
-#
-#     return pos_count == neg_count
-
-
 def simplify_delta(product: TensorProduct) -> tuple[TensorProduct, bool]:
     """
     Evaluate delta tensors in a tensor product.
@@ -590,6 +564,7 @@ def multiply_2(
 
 
 if __name__ == "__main__":
+    # TODO, make this example complete
     ###
     # Example 1
     # check e_aij T_ijkl, e_aij T_ikjl, and e_aij T_kijl are linearly dependent
