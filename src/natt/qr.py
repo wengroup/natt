@@ -2,12 +2,18 @@ import torch
 from torch import Tensor
 
 
-def find_independent_tensors(tensors: list[Tensor], tolerance=1e-4):
+def find_independent_tensors(
+    tensors: list[Tensor], tolerance=1e-4
+) -> tuple[list[Tensor], list[int]]:
     """Find linearly independent tensors using QR decomposition.
 
     Args:
         tensors: list of tensors
         tolerance: tolerance for checking diagonal elements is non-zero
+
+    Returns:
+        independent_tensors: list of linearly independent tensors
+        independent_indices: indices of the independent tensors in the original list
     """
     vectors = [t.flatten() for t in tensors]
     matrix = torch.vstack(vectors)

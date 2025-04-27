@@ -1,6 +1,3 @@
-import itertools
-from fractions import Fraction
-
 from pytest import fixture
 
 from natt.ops import (
@@ -8,7 +5,6 @@ from natt.ops import (
     contract_two_epsilon,
     contract_with_delta,
     simplify_tensor_product,
-    symmetrize,
 )
 from natt.symbolic import (
     CartesianTensor,
@@ -102,30 +98,6 @@ def test_contract_two_epsilon(epsilon_ijk, epsilon_ijl, epsilon_ilm):
     )
 
 
-def test_symmetrize():
-    indices = "ijkl"  # symmetrizing indices
-    tensors = [
-        CartesianTensor("".join(p), factor=Fraction(1, 24))
-        for p in itertools.permutations(indices)
-    ]
-    assert symmetrize(CartesianTensor(indices)) == LinearCombination(*tensors)
-
-    indices = "akl"  # symmetrizing indices
-    tensors = []
-    for p in itertools.permutations(indices):
-        t = TensorProduct(
-            Epsilon(f"{p[0]}ij"),
-            CartesianTensor(f"ij{p[1]}{p[2]}"),
-            factor=Fraction(1, 6),
-        )
-        tensors.append(t)
-    lin_comb = LinearCombination(*tensors)
-
-    t = TensorProduct(Epsilon("aij"), CartesianTensor("ijkl"))
-    s = symmetrize(t)
-    assert s == lin_comb
-
-
 def test_simplify():
     d1 = Delta("ij", factor=2)
     d2 = Delta("jk", factor=2)
@@ -173,3 +145,27 @@ def test_simplify():
     tp = TensorProduct(d1, e1, e3, T1)
     tp_s = simplify_tensor_product(tp)
     assert tp_s.to_str_list() == ["+72 T_ljml", "-72 T_mjll"]
+
+
+# def test_symmetrize():
+#     indices = "ijkl"  # symmetrizing indices
+#     tensors = [
+#         CartesianTensor("".join(p), factor=Fraction(1, 24))
+#         for p in itertools.permutations(indices)
+#     ]
+#     assert symmetrize(CartesianTensor(indices)) == LinearCombination(*tensors)
+#
+#     indices = "akl"  # symmetrizing indices
+#     tensors = []
+#     for p in itertools.permutations(indices):
+#         t = TensorProduct(
+#             Epsilon(f"{p[0]}ij"),
+#             CartesianTensor(f"ij{p[1]}{p[2]}"),
+#             factor=Fraction(1, 6),
+#         )
+#         tensors.append(t)
+#     lin_comb = LinearCombination(*tensors)
+#
+#     t = TensorProduct(Epsilon("aij"), CartesianTensor("ijkl"))
+#     s = symmetrize(t)
+#     assert s == lin_comb

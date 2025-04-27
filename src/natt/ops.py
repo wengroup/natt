@@ -3,7 +3,7 @@ Operations on symbolic cartesian tensors.
 """
 
 import itertools
-from collections import Counter, defaultdict
+from collections import defaultdict
 from fractions import Fraction
 
 from natt.symbolic import (
@@ -206,48 +206,6 @@ def contract_two_epsilon(
 
     else:
         raise ValueError("No repeated indices")
-
-
-def symmetrize(
-    tensor: CartesianTensor | TensorProduct, indices: str = None
-) -> LinearCombination:
-    """
-    Symmetrize a tensor or tensor product over the given indices.
-
-    Args:
-        tensor: The tensor or tensor product to symmetrize.
-        indices: The indices to symmetrize over. If None, all non-repeated indices are
-            symmetrized.
-
-    Returns:
-        A `LinearCombination` of tensors/tensor products, each with a different
-        permutation of the indices, and each is normalized by the number of total
-        permutations.
-    """
-
-    if indices is None:
-        indices = [i for i, c in Counter(tensor.indices).items() if c == 1]
-    else:
-        # check provided indices are not repeated in the tensor
-        for i in indices:
-            if tensor.indices.count(i) != 1:
-                raise ValueError(f"Index {i} must appear exactly once in the tensor")
-
-    moveable_pos = [i for i, x in enumerate(tensor.indices) if x in indices]
-
-    all_tensors = []
-    permutations = list(itertools.permutations(moveable_pos))
-    for perm in permutations:
-        # candidate permute
-        permute = list(range(len(tensor.indices)))
-        # update permute positions
-        for i, p in zip(moveable_pos, perm):
-            permute[i] = p
-
-        t = tensor.permute_indices(permute, factor=Fraction(1, len(permutations)))
-        all_tensors.append(t)
-
-    return LinearCombination(*all_tensors)
 
 
 def simplify_delta(product: TensorProduct) -> tuple[TensorProduct, bool]:
@@ -536,8 +494,7 @@ def multiply_2(
     factor: int | Fraction = 1,
 ) -> LinearCombination:
     """
-    Multiply tensors, tensor products, linearly combined tensors to create a new
-    Tensors object.
+    Multiply tensors, tensor products, linearly combined tensors.
 
     Args:
         *tensors: the tensors or tensor products to multiply.
@@ -563,39 +520,43 @@ def multiply_2(
     return LinearCombination(*all_tp)
 
 
-if __name__ == "__main__":
-    # TODO, make this example complete
-    ###
-    # Example 1
-    # check e_aij T_ijkl, e_aij T_ikjl, and e_aij T_kijl are linearly dependent
-
-    # basic tensors
-    e = Epsilon("aij")
-    tp1 = contract_with_epsilon(e, CartesianTensor("ijkl"))
-    tp2 = contract_with_epsilon(e, CartesianTensor("ikjl"))
-    tp3 = contract_with_epsilon(e, CartesianTensor("kijl"))
-
-    # symmetrize the tensors
-    s1 = symmetrize(tp1, indices="akl")
-    s2 = symmetrize(tp2, indices="akl")
-    s3 = symmetrize(tp3, indices="akl")
-
-    tensors = s1 + -1 * s2 + s3
-
-    # evaluated = tensors.evaluate(
-    #     {
-    #         "a": "1",
-    #         "i": "2",
-    #         "j": "3",
-    #         "k": "2",
-    #         "l": "3",
-    #     }
-    # )
-    evaluated = simplify_linear_combination(tensors)
-    print("@@@", evaluated)
-
-    evaluated_non_zero = LinearCombination(*[t for t in evaluated if t.factor != 0])
-
-    print("Tensors", tensors)
-    print("number of non-zeros:", len(evaluated_non_zero))
-    print("evaluated non-zeros", evaluated_non_zero)
+# def symmetrize(
+#     tensor: CartesianTensor | TensorProduct, indices: str = None
+# ) -> LinearCombination:
+#     """
+#     Symmetrize a tensor or tensor product over the given indices.
+#
+#     Args:
+#         tensor: The tensor or tensor product to symmetrize.
+#         indices: The indices to symmetrize over. If None, all non-repeated indices are
+#             symmetrized.
+#
+#     Returns:
+#         A `LinearCombination` of tensors/tensor products, each with a different
+#         permutation of the indices, and each is normalized by the number of total
+#         permutations.
+#     """
+#
+#     if indices is None:
+#         indices = [i for i, c in Counter(tensor.indices).items() if c == 1]
+#     else:
+#         # check provided indices are not repeated in the tensor
+#         for i in indices:
+#             if tensor.indices.count(i) != 1:
+#                 raise ValueError(f"Index {i} must appear exactly once in the tensor")
+#
+#     moveable_pos = [i for i, x in enumerate(tensor.indices) if x in indices]
+#
+#     all_tensors = []
+#     permutations = list(itertools.permutations(moveable_pos))
+#     for perm in permutations:
+#         # candidate permute
+#         permute = list(range(len(tensor.indices)))
+#         # update permute positions
+#         for i, p in zip(moveable_pos, perm):
+#             permute[i] = p
+#
+#         t = tensor.permute_indices(permute, factor=Fraction(1, len(permutations)))
+#         all_tensors.append(t)
+#
+#     return LinearCombination(*all_tensors)
