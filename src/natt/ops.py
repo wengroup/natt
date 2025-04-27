@@ -1,5 +1,5 @@
 """
-Operations on cartesian tensors.
+Operations on symbolic cartesian tensors.
 """
 
 import itertools
@@ -50,6 +50,7 @@ def contract_with_epsilon(epsilon: Epsilon, tensor: CartesianTensor) -> TensorPr
     r"""
     Contract a tensor with an epsilon tensor.
 
+    For example,
     \epsilon_aij T_ijk...n
     \epsilon_abi T_ijk...n
 
@@ -66,7 +67,7 @@ def contract_with_epsilon(epsilon: Epsilon, tensor: CartesianTensor) -> TensorPr
     return TensorProduct(epsilon, tensor)
 
 
-def contract_epsilon_delta(epsilon: Epsilon, delta: Delta):
+def contract_epsilon_delta(epsilon: Epsilon, delta: Delta) -> Zero | CartesianTensor:
     r"""
     Contract an epsilon tensor with a delta tensor.
 
@@ -74,7 +75,7 @@ def contract_epsilon_delta(epsilon: Epsilon, delta: Delta):
     \epsilon_ijk \delta_ij = \epsilon_iik = 0
     \epsilon_ijk \delta_il = \epsilon_ljk
 
-    At least one of the indices must be repeated in the delta tensor
+    The two tensors should share at least one common index.
 
     Args:
         epsilon: The epsilon tensor, given by three indices.
@@ -89,14 +90,16 @@ def contract_epsilon_delta(epsilon: Epsilon, delta: Delta):
     return contract_with_delta(delta, epsilon)
 
 
-def contract_two_epsilon(epsilon1: Epsilon, epsilon2: Epsilon):
+def contract_two_epsilon(
+    epsilon1: Epsilon, epsilon2: Epsilon
+) -> Scalar | Delta | LinearCombination:
     """
     Contract two epsilon tensors.
 
-    This implements:
+    This implements the following rules:
     1. e_ijk e_pqk = d_ip d_jq - d_iq d_jp
     2. e_ijk e_pjk = 2 d_ip
-    3. e_ijk e_ijk = 6
+    3. e_ijk e_ijk = 6, e_ijk e_jik = -6
 
     Args:
         epsilon1: The first epsilon tensor.
@@ -209,15 +212,17 @@ def symmetrize(
     tensor: CartesianTensor | TensorProduct, indices: str = None
 ) -> LinearCombination:
     """
-    Symmetrize a tensor.
+    Symmetrize a tensor or tensor product over the given indices.
 
     Args:
-        tensor: A Cartesian tensor.
-        indices: The indices to symmetrize over. If None, all non-repeated indices are symmetrized.
+        tensor: The tensor or tensor product to symmetrize.
+        indices: The indices to symmetrize over. If None, all non-repeated indices are
+            symmetrized.
 
     Returns:
-        A list of tensors, each with a different permutation of the indices, each tensor
-        is normalized by the number of permutations.
+        A `LinearCombination` of tensors/tensor products, each with a different
+        permutation of the indices, and each is normalized by the number of total
+        permutations.
     """
 
     if indices is None:
@@ -245,89 +250,43 @@ def symmetrize(
     return LinearCombination(*all_tensors)
 
 
-def is_zero(tensors: LinearCombination) -> bool:
-    """
-    Check whether a linear combination of tensors is zero.
-    """
-    # TODO, for now, we just check if the str representation of the positive ones
-    #  and the negative ones are the same
-    positive = []
-    negative = []
-    for t in tensors:
-        if t.factor == 0:
-            continue
-        elif t.factor > 0:
-            positive.append(t)
-        else:
-            negative.append(t)
-
-    # flip the sign of the negative ones
-    negative = [-1 * t for t in negative]
-
-    pos_count = Counter([str(t) for t in positive])
-    neg_count = Counter([str(t) for t in negative])
-
-    return pos_count == neg_count
-
-
-def simplify_epsilon(
-    product: TensorProduct,
-) -> tuple[TensorProduct | LinearCombination, bool]:
-    """
-    Evaluate product of two epsilon tensors in a tensor product.
-    """
-
-    epsilon_pos = [i for i, t in enumerate(product) if isinstance(t, Epsilon)]
-
-    for i, j in itertools.combinations(epsilon_pos, 2):
-        # check if they share at least one index
-        if set(product[i].indices) & set(product[j].indices):
-            out = contract_two_epsilon(product[i], product[j])
-
-            # Remaining components after the two epsilon tensors are contracted
-            remaining = [t for p, t in enumerate(product) if p not in [i, j]]
-
-            # three identical indices, resulting in a scalar
-            if isinstance(out, Scalar):
-                return (
-                    TensorProduct(out, *remaining, factor=product.factor),
-                    True,
-                )
-
-            # two identical indices, resulting in a delta tensor
-            elif isinstance(out, Delta):
-                return (
-                    TensorProduct(out, *remaining, factor=product.factor),
-                    True,
-                )
-
-            # one identical index, resulting in linear combination of tensor products
-            # of delta tensors e_ijk e_ilm = d_jl d_km - d_jm d_kl
-            elif isinstance(out, LinearCombination):
-                all_tp = []
-                for tp in out:
-                    new_tp = TensorProduct(
-                        *tp.components,
-                        *remaining,
-                        factor=tp.factor * product.factor,
-                    )
-                    all_tp.append(new_tp)
-
-                return LinearCombination(*all_tp), True
-
-            else:
-                raise ValueError("Invalid output")
-
-    return product, False
+#
+# def is_zero(tensors: LinearCombination) -> bool:
+#     """
+#     Check whether a linear combination of tensors is zero.
+#     """
+#     # TODO, for now, we just check if the str representation of the positive ones
+#     #  and the negative ones are the same
+#     positive = []
+#     negative = []
+#     for t in tensors:
+#         if t.factor == 0:
+#             continue
+#         elif t.factor > 0:
+#             positive.append(t)
+#         else:
+#             negative.append(t)
+#
+#     # flip the sign of the negative ones
+#     negative = [-1 * t for t in negative]
+#
+#     pos_count = Counter([str(t) for t in positive])
+#     neg_count = Counter([str(t) for t in negative])
+#
+#     return pos_count == neg_count
 
 
 def simplify_delta(product: TensorProduct) -> tuple[TensorProduct, bool]:
     """
-    Evaluate product of a delta tensor with another tensor in a tensor product.
+    Evaluate delta tensors in a tensor product.
 
-    This will contract all possible delta tensors in the product.
+    This will recursively contract all possible delta tensors in the product.
 
-    Tensors like delta_ii will evaluated to 3.
+    Tensors like delta_ii will evaluate to 3.
+
+    Returns:
+        product: The simplified tensor product.
+        performed: True if any contraction was performed, False otherwise.
     """
     # Positions of delta tensors in the product
     delta_pos = [i for i, t in enumerate(product) if isinstance(t, Delta)]
@@ -398,6 +357,64 @@ def simplify_delta(product: TensorProduct) -> tuple[TensorProduct, bool]:
         return product, False
 
 
+def simplify_epsilon(
+    product: TensorProduct,
+) -> tuple[TensorProduct | LinearCombination, bool]:
+    """
+    Evaluate product of epsilon tensors.
+
+    This only considers products between epsilon tensors, and not with other tensors.
+    It will consider all possible combinations of epsilon tensors in the product.
+
+    Returns:
+        product: The simplified tensor product.
+        performed: True if any contraction was performed, False otherwise.
+    """
+
+    epsilon_pos = [i for i, t in enumerate(product) if isinstance(t, Epsilon)]
+
+    for i, j in itertools.combinations(epsilon_pos, 2):
+        # check if they share at least one index
+        if set(product[i].indices) & set(product[j].indices):
+            out = contract_two_epsilon(product[i], product[j])
+
+            # Remaining components after the two epsilon tensors are contracted
+            remaining = [t for p, t in enumerate(product) if p not in [i, j]]
+
+            # three identical indices, resulting in a scalar
+            if isinstance(out, Scalar):
+                return (
+                    TensorProduct(out, *remaining, factor=product.factor),
+                    True,
+                )
+
+            # two identical indices, resulting in a delta tensor
+            elif isinstance(out, Delta):
+                return (
+                    TensorProduct(out, *remaining, factor=product.factor),
+                    True,
+                )
+
+            # one identical index, resulting in linear combination of tensor products
+            # of delta tensors e_ijk e_ilm = d_jl d_km - d_jm d_kl
+            elif isinstance(out, LinearCombination):
+                all_tp = []
+                for tp in out:
+                    new_tp = TensorProduct(
+                        *tp.components,
+                        *remaining,
+                        factor=tp.factor * product.factor,
+                    )
+                    all_tp.append(new_tp)
+
+                return LinearCombination(*all_tp), True
+
+            else:
+                raise ValueError("Invalid output")
+
+    return product, False
+
+
 def simplify(tp: TensorProduct) -> LinearCombination:
     """
     Simplify a tensor product by apply delta and epsilon rules.
@@ -407,6 +424,9 @@ def simplify(tp: TensorProduct) -> LinearCombination:
 
     For example,
     d_ij e_imn d_nq T_qpr -> e_jmq T_qpr
+
+    Returns:
+        The simplified output as a linear combination.
     """
 
     # Iteratively simplify the tensor product
@@ -467,6 +487,7 @@ def simplify_2(tensor: LinearCombination) -> LinearCombination:
     """Simplify a linear combination of tensors.
     1. Applying delta and epsilon rules.
     2. Removing zero tensors or tensor products.
+    3. Combine tensor products that are of the same form.
     """
     simplified = []
     for t in tensor:
@@ -485,7 +506,7 @@ def simplify_2(tensor: LinearCombination) -> LinearCombination:
     for t in simplified:
         if isinstance(t, CartesianTensor):
             raise ValueError(
-                "@not implemented, should modify the `for tp_list in "
+                "Not implemented, should modify the `for tp_list in "
                 "categorized.values()` block too"
             )
         elif isinstance(t, TensorProduct):
@@ -495,8 +516,6 @@ def simplify_2(tensor: LinearCombination) -> LinearCombination:
         else:
             raise ValueError("Unexpected type")
 
-    # TODO, the logic is reimplemented in `combine_terms()`, but it is much
-    #  simple here
     lin_comb = []
     for tp_list in categorized.values():
         factor = sum(tp.factor for tp in tp_list)
@@ -506,44 +525,6 @@ def simplify_2(tensor: LinearCombination) -> LinearCombination:
     simplified = LinearCombination(*lin_comb)
 
     return LinearCombination(*simplified)
-
-
-if __name__ == "__main__":
-    ###
-    # Example 1
-    # check e_aij T_ijkl, e_aij T_ikjl, and e_aij T_kijl are linearly dependent
-
-    # basic tensors
-    e = Epsilon("aij")
-    tp1 = contract_with_epsilon(e, CartesianTensor("ijkl"))
-    tp2 = contract_with_epsilon(e, CartesianTensor("ikjl"))
-    tp3 = contract_with_epsilon(e, CartesianTensor("kijl"))
-
-    # symmetrize the tensors
-    s1 = symmetrize(tp1, indices="akl")
-    s2 = symmetrize(tp2, indices="akl")
-    s3 = symmetrize(tp3, indices="akl")
-
-    tensors = s1 + -1 * s2 + s3
-
-    evaluated = tensors.evaluate(
-        {
-            "a": "1",
-            "i": "2",
-            "j": "3",
-            "k": "2",
-            "l": "3",
-        }
-    )
-
-    evaluated_non_zero = LinearCombination(*[t for t in evaluated if t.factor != 0])
-
-    out = is_zero(evaluated_non_zero)
-
-    print("Tensors", tensors)
-    print("number of non-zeros:", len(evaluated_non_zero))
-    print("evaluated non-zeros", evaluated_non_zero)
-    print("Dependence:", out)
 
 
 def multiply(
@@ -580,7 +561,8 @@ def multiply_2(
     factor: int | Fraction = 1,
 ) -> LinearCombination:
     """
-    Multiply tensors, tensor products, linearly combined tensors to create a new Tensors object.
+    Multiply tensors, tensor products, linearly combined tensors to create a new
+    Tensors object.
 
     Args:
         *tensors: the tensors or tensor products to multiply.
@@ -604,3 +586,40 @@ def multiply_2(
         all_tp.append(multiply(*prod, factor=factor))
 
     return LinearCombination(*all_tp)
+
+
+if __name__ == "__main__":
+    ###
+    # Example 1
+    # check e_aij T_ijkl, e_aij T_ikjl, and e_aij T_kijl are linearly dependent
+
+    # basic tensors
+    e = Epsilon("aij")
+    tp1 = contract_with_epsilon(e, CartesianTensor("ijkl"))
+    tp2 = contract_with_epsilon(e, CartesianTensor("ikjl"))
+    tp3 = contract_with_epsilon(e, CartesianTensor("kijl"))
+
+    # symmetrize the tensors
+    s1 = symmetrize(tp1, indices="akl")
+    s2 = symmetrize(tp2, indices="akl")
+    s3 = symmetrize(tp3, indices="akl")
+
+    tensors = s1 + -1 * s2 + s3
+
+    # evaluated = tensors.evaluate(
+    #     {
+    #         "a": "1",
+    #         "i": "2",
+    #         "j": "3",
+    #         "k": "2",
+    #         "l": "3",
+    #     }
+    # )
+    evaluated = simplify_2(tensors)
+    print("@@@", evaluated)
+
+    evaluated_non_zero = LinearCombination(*[t for t in evaluated if t.factor != 0])
+
+    print("Tensors", tensors)
+    print("number of non-zeros:", len(evaluated_non_zero))
+    print("evaluated non-zeros", evaluated_non_zero)

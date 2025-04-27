@@ -3,7 +3,6 @@ Symbolic representation of cartesian tensor, product of cartesian tensors, and l
 combinations of them.
 """
 
-import itertools
 from collections import Counter, defaultdict
 from fractions import Fraction
 from typing import Union
@@ -72,12 +71,12 @@ class CartesianTensor:
 
         return self.__class__(indices, factor * self.factor, self.symbol)
 
-    def evaluate(self, mapping: dict[str, str]) -> "LinearCombination":
-        """Evaluate tensor indices to 1, 2, 3."""
-        indices = evaluate_indices(self.indices, mapping)
-        tensors = [self.__class__(i, self.factor, self.symbol) for i in indices]
-
-        return LinearCombination(*tensors)
+    # def evaluate(self, mapping: dict[str, str]) -> "LinearCombination":
+    #     """Evaluate tensor indices to 1, 2, 3."""
+    #     indices = evaluate_indices(self.indices, mapping)
+    #     tensors = [self.__class__(i, self.factor, self.symbol) for i in indices]
+    #
+    #     return LinearCombination(*tensors)
 
     @staticmethod
     def _check_indices(indices: str):
@@ -162,16 +161,16 @@ class Delta(CartesianTensor):
         assert len(indices) == 2, "The delta tensor must have two indices"
         super().__init__(indices, factor, symbol)
 
-    def evaluate(self, mapping: dict[str, str]):
-        # check mapping consists of all indices for epsilon tensor
-        assert set(self.indices).issubset(set(mapping.keys())), "Invalid mapping keys"
-
-        assert set(mapping.values()).issubset({"1", "2", "3"}), "Invalid mapping values"
-
-        if mapping[self[0]] == mapping[self[1]]:
-            return Scalar(3)
-        else:
-            return Zero()
+    # def evaluate(self, mapping: dict[str, str]):
+    #     # check mapping consists of all indices for epsilon tensor
+    #     assert set(self.indices).issubset(set(mapping.keys())), "Invalid mapping keys"
+    #
+    #     assert set(mapping.values()).issubset({"1", "2", "3"}), "Invalid mapping values"
+    #
+    #     if mapping[self[0]] == mapping[self[1]]:
+    #         return Scalar(3)
+    #     else:
+    #         return Zero()
 
     def __eq__(self, other):
         # should not compare symbol, but just make sure it is a Delta tensor
@@ -201,30 +200,30 @@ class Epsilon(CartesianTensor):
         assert len(indices) == 3, "The epsilon tensor must have three indices"
         super().__init__(indices, factor, symbol)
 
-    def evaluate(
-        self, mapping: dict[str, str]
-    ) -> Union["CartesianTensor", "LinearCombination"]:
-        """
-        Evaluate tensor indices to 1, 2, 3.
-
-        e_123, e_231, e_312 = 1
-        e_132, e_213, e_321 = -1
-        others = 0
-        """
-
-        # check mapping consists of all indices for epsilon tensor
-        assert set(self.indices).issubset(set(mapping.keys())), "Invalid mapping keys"
-
-        assert set(mapping.values()).issubset({"1", "2", "3"}), "Invalid mapping values"
-
-        indices = "".join(mapping[i] for i in self)
-
-        if indices in ["123", "231", "312"]:
-            return Scalar(self.factor)
-        elif indices in ["132", "213", "321"]:
-            return Scalar(-1 * self.factor)
-        else:
-            return Zero()
+    # def evaluate(
+    #     self, mapping: dict[str, str]
+    # ) -> Union["CartesianTensor", "LinearCombination"]:
+    #     """
+    #     Evaluate tensor indices to 1, 2, 3.
+    #
+    #     e_123, e_231, e_312 = 1
+    #     e_132, e_213, e_321 = -1
+    #     others = 0
+    #     """
+    #
+    #     # check mapping consists of all indices for epsilon tensor
+    #     assert set(self.indices).issubset(set(mapping.keys())), "Invalid mapping keys"
+    #
+    #     assert set(mapping.values()).issubset({"1", "2", "3"}), "Invalid mapping values"
+    #
+    #     indices = "".join(mapping[i] for i in self)
+    #
+    #     if indices in ["123", "231", "312"]:
+    #         return Scalar(self.factor)
+    #     elif indices in ["132", "213", "321"]:
+    #         return Scalar(-1 * self.factor)
+    #     else:
+    #         return Zero()
 
     def __eq__(self, other):
         # should not compare symbol, but just make sure it is a Epsilon tensor
@@ -335,32 +334,32 @@ class TensorProduct:
 
         return TensorProduct(*tensors, factor=factor * self.factor)
 
-    def evaluate(self, mapping: dict[str, str]) -> "LinearCombination":
-        """
-        Evaluate tensor indices to 1, 2, 3.
-        """
-        # evaluate indices of all constituting tensors
-        all_indices = evaluate_indices(self.indices, mapping, strict=True)
-
-        tensor_product = []
-        for indices in all_indices:
-            # new mapping based on the evaluated indices
-            new_mapping = dict(zip(self.indices, indices))
-
-            # evaluate each constituting tensor
-            evaluated = []
-            for t in self._tensors:
-                out = t.evaluate(new_mapping)
-                if isinstance(out, LinearCombination):
-                    evaluated.append(list(out._tensors))
-                else:
-                    evaluated.append([out])
-
-            for tensors in itertools.product(*evaluated):
-                tp = TensorProduct(*tensors, factor=self.factor)
-                tensor_product.append(tp)
-
-        return LinearCombination(*tensor_product)
+    # def evaluate(self, mapping: dict[str, str]) -> "LinearCombination":
+    #     """
+    #     Evaluate tensor indices to 1, 2, 3.
+    #     """
+    #     # evaluate indices of all constituting tensors
+    #     all_indices = evaluate_indices(self.indices, mapping, strict=True)
+    #
+    #     tensor_product = []
+    #     for indices in all_indices:
+    #         # new mapping based on the evaluated indices
+    #         new_mapping = dict(zip(self.indices, indices))
+    #
+    #         # evaluate each constituting tensor
+    #         evaluated = []
+    #         for t in self._tensors:
+    #             out = t.evaluate(new_mapping)
+    #             if isinstance(out, LinearCombination):
+    #                 evaluated.append(list(out._tensors))
+    #             else:
+    #                 evaluated.append([out])
+    #
+    #         for tensors in itertools.product(*evaluated):
+    #             tp = TensorProduct(*tensors, factor=self.factor)
+    #             tensor_product.append(tp)
+    #
+    #     return LinearCombination(*tensor_product)
 
     def canonize(self):
         """
@@ -477,18 +476,18 @@ class LinearCombination:
     def __init__(self, *tensors: CartesianTensor | Delta | Epsilon | TensorProduct):
         self._tensors = tensors
 
-    def evaluate(self, mapping: dict[str, str]) -> "LinearCombination":
-        """Evaluate tensor indices to 1, 2, 3."""
-
-        evaluated = []
-        for t in self._tensors:
-            e = t.evaluate(mapping)
-            if isinstance(e, LinearCombination):
-                evaluated.extend(e)
-            else:
-                evaluated.append(e)
-
-        return self.__class__(*evaluated)
+    # def evaluate(self, mapping: dict[str, str]) -> "LinearCombination":
+    #     """Evaluate tensor indices to 1, 2, 3."""
+    #
+    #     evaluated = []
+    #     for t in self._tensors:
+    #         e = t.evaluate(mapping)
+    #         if isinstance(e, LinearCombination):
+    #             evaluated.extend(e)
+    #         else:
+    #             evaluated.append(e)
+    #
+    #     return self.__class__(*evaluated)
 
     @property
     def components(self):
@@ -548,65 +547,65 @@ class LinearCombination:
         return "  ".join(str_rep)
 
 
-def evaluate_indices(
-    indices: str, mapping: dict[str, str | int], strict: bool = False
-) -> list[str]:
-    """
-    Evaluate the given indices to 1, 2, and 3.
-
-    1. Repeat indices are automatically expanded to 11, 22, 33.
-    2. For non-repeated indices, it will be expanded according to the mapping.
-       If a mapping for an index is not provided, it will not be expanded.
-
-    Args:
-        indices: the indices to evaluate.
-        mapping: {i:v} index value pairs to use in the evaluation.
-            Examples: {"i": "1", "j": "2", "k": "3"}
-        strict: If True, raise an error mapping is provided for an index not in the
-            indices.
-
-    Returns:
-        A list of evaluated indices.
-    """
-    # convert mapping values to strings
-    mapping = {k: str(v) for k, v in mapping.items()}
-
-    # checking all mapping keys are in the indices
-    if strict and not set(mapping.keys()).issubset(set(indices)):
-        raise ValueError("All mapping keys should be in the indices")
-
-    # check mapping values are 1, 2, or 3
-    if not set(mapping.values()).issubset({"1", "2", "3"}):
-        raise ValueError("All mapping values should be 1, 2, or 3")
-
-    # find all repeated indices
-    count = Counter(indices)
-
-    single_indices = []
-    double_indices = []
-    for i, c in count.items():
-        if c == 1:
-            single_indices.append(i)
-        elif c == 2:
-            double_indices.append(i)
-        else:
-            raise ValueError("Indices can be repeated at most twice")
-
-    # expand single indices according to the mapping
-    indices = list(indices)
-    for x in single_indices:
-        if x in mapping:
-            indices[indices.index(x)] = mapping[x]
-    indices = "".join(indices)
-
-    # expand double indices to 1, 2, 3
-    indices = [indices]
-    new_indices = []
-    for i in double_indices:
-        for t in indices:
-            for j in range(1, 4):
-                new_indices.append(t.replace(i, str(j)))
-        indices = new_indices
-        new_indices = []
-
-    return indices
+# def evaluate_indices(
+#     indices: str, mapping: dict[str, str | int], strict: bool = False
+# ) -> list[str]:
+#     """
+#     Evaluate the given indices to 1, 2, and 3.
+#
+#     1. Repeat indices are automatically expanded to 11, 22, 33.
+#     2. For non-repeated indices, it will be expanded according to the mapping.
+#        If a mapping for an index is not provided, it will not be expanded.
+#
+#     Args:
+#         indices: the indices to evaluate.
+#         mapping: {i:v} index value pairs to use in the evaluation.
+#             Examples: {"i": "1", "j": "2", "k": "3"}
+#         strict: If True, raise an error mapping is provided for an index not in the
+#             indices.
+#
+#     Returns:
+#         A list of evaluated indices.
+#     """
+#     # convert mapping values to strings
+#     mapping = {k: str(v) for k, v in mapping.items()}
+#
+#     # checking all mapping keys are in the indices
+#     if strict and not set(mapping.keys()).issubset(set(indices)):
+#         raise ValueError("All mapping keys should be in the indices")
+#
+#     # check mapping values are 1, 2, or 3
+#     if not set(mapping.values()).issubset({"1", "2", "3"}):
+#         raise ValueError("All mapping values should be 1, 2, or 3")
+#
+#     # find all repeated indices
+#     count = Counter(indices)
+#
+#     single_indices = []
+#     double_indices = []
+#     for i, c in count.items():
+#         if c == 1:
+#             single_indices.append(i)
+#         elif c == 2:
+#             double_indices.append(i)
+#         else:
+#             raise ValueError("Indices can be repeated at most twice")
+#
+#     # expand single indices according to the mapping
+#     indices = list(indices)
+#     for x in single_indices:
+#         if x in mapping:
+#             indices[indices.index(x)] = mapping[x]
+#     indices = "".join(indices)
+#
+#     # expand double indices to 1, 2, 3
+#     indices = [indices]
+#     new_indices = []
+#     for i in double_indices:
+#         for t in indices:
+#             for j in range(1, 4):
+#                 new_indices.append(t.replace(i, str(j)))
+#         indices = new_indices
+#         new_indices = []
+#
+#     return indices
