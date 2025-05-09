@@ -32,6 +32,7 @@ def symmetrize_via_permutation(
     else:
         raise ValueError(f"Unknown mode: {mode}")
 
+
 # TODO This is more memory efficient than the above function, but is it more time efficient?
 # def symmetrize_via_permutation(
 #     t: Tensor, perms: list[list[int]], mode: str = "sum"
@@ -85,6 +86,7 @@ def symmetrize_and_remove_trace(
     return remove_trace(symmetrize(t, start_dim, symmetry), start_dim)
 
 
+# TODO, this fn has the same name as one in the sym.py file. We should rename
 def symmetrize(
     t: Tensor, start_dim: int = 0, symmetry: str = None, mode: str = "mean"
 ) -> Tensor:

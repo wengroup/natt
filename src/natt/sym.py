@@ -6,6 +6,8 @@ import torch
 from torch import Tensor
 
 
+# TODO, this fn has the same name as one in the symmetrize.py file. We should
+#  rename one of them
 def symmetrize(t: Tensor, symmetry: str, mode: str = "mean") -> Tensor:
     """
     Symmetrize a generic tensor to obtain a tensor with the specified symmetry.
