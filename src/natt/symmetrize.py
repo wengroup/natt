@@ -32,7 +32,34 @@ def symmetrize_via_permutation(
     else:
         raise ValueError(f"Unknown mode: {mode}")
 
-
+# TODO This is more memory efficient than the above function, but is it more time efficient?
+# def symmetrize_via_permutation(
+#     t: Tensor, perms: list[list[int]], mode: str = "sum"
+# ) -> Tensor:
+#     """
+#     Symmetrize a tensor by summing/averaging over all permutations.
+#
+#     Args:
+#         t: The tensor to symmetrize.
+#         perms: Permutations of the indices for symmetrization.
+#         mode: The mode of symmetrization. For `sum`, summation is performed over all
+#             permutations. For `mean`, the average is taken.
+#
+#     Returns:
+#         The symmetrized tensor.
+#     """
+#     result = torch.zeros_like(t)
+#
+#     for p in perms:
+#         result += t.permute(p)
+#
+#     if mode == "sum":
+#         return result
+#     elif mode == "mean":
+#         return result / len(perms)
+#     else:
+#         raise ValueError(f"Unknown mode: {mode}")
+#
 def symmetrize_and_remove_trace(
     t: Tensor, start_dim: int = 0, symmetry: str = None
 ) -> Tensor:
