@@ -14,6 +14,8 @@ from natt.sym import symmetrize
         (3, "ijk=ikj"),
         (3, "ijk=ikj=jik"),
         (4, None),
+        (4, "ijkl=jikl"),
+        (4, "ijkl=jilk"),
         (4, "ijkl=jikl=klij"),
         (4, "ijkl=jikl=kjil=ljki"),
     ],
