@@ -8,6 +8,8 @@ requires-python = ">=3.10"
 dynamic = ["version"]
 dependencies = [
     "torch",
+    "numpy",
+    "monty",
 ]
 
 [project.optional-dependencies]
