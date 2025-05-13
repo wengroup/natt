@@ -19,6 +19,7 @@ from torch import Tensor
 
 from natt.matrix import matrix_inverse, matrix_multiply, matrix_transpose
 from natt.ops import multiply_2, simplify_linear_combination
+from natt.qr import is_linear_independent
 from natt.sym import symmetrize
 from natt.symbolic import (
     CartesianTensor,
@@ -523,6 +524,12 @@ def get_g_pq(
     Compute a single g_pq value, which is defined as
      G^p(n|j} \odot^n G^q(n|j) = g_pq E(j|j).
 
+    Warnings:
+        This function has strict rules on the input G_p and G_q. They should be
+        provided in their original form, before any simplification. Otherwise, the
+        contraction will not work as expected. In other words, the input G_p and G_q
+        should not be simplified or canonized, e.g. using simplify_linear_combination().
+
     Args:
         j:
 
@@ -829,7 +836,7 @@ def group_G_by_symmetry(
 
 def get_independent_H_coeff(
     h: list[list[Fraction]], indices_group: list[list[int]]
-) -> list[list[Fraction]]:
+) -> tuple[list[list[Fraction]], list[int], list[int]]:
     """
     Construct coefficient matrix to combine independent H tensors to obtain other H.
 
@@ -843,11 +850,20 @@ def get_independent_H_coeff(
         indices_group:
 
     Returns:
-        Each column gives the coefficients of combining independent H to obtain other H.
-
+        coeff: Each column gives the coefficients of combining independent H to obtain
+            other H.
+        ind_indices: indices of independent H
+        dep_indices: indices of dependent H
     """
     num_ind = len(indices_group)
 
+    # Gather coefficients of equivalent G tensors
+    # We have:
+    # H_p = h_p1 G_1 _+ h_p2 G_2 + ... + h_pq G_q
+    # and the G are equivalent in each group.
+    # We obtain:
+    # H_p = u_p1 G_1 + u_p2 G_2 + u_pr G_r
+    # where r is the number of unique groups.
     u = []
     for h_p in h:
         u_p = []
@@ -857,25 +873,46 @@ def get_independent_H_coeff(
             u_p.append(u_pq)
         u.append(u_p)
 
-    # The first num_ind rows of u correspond to independent H, the rest num_p - num_ind
-    # rows correspond to dependent H that can be written as linear combinations of the
-    # first num_group rows.
-    M = u[:num_ind]
-    M = matrix_transpose(M)
-    N = u[num_ind:]
-    N = matrix_transpose(N)
+    # Split the H tensors (u here) into independent ones M and dependent ones N
+    M = []  # independent H
+    M_indices = []  # indices of independent H
+    N = []  # dependent H
+    N_indices = []  # indices of dependent H
 
+    num = 0
+    for i, row in enumerate(u):
+
+        # Independent H tensor
+        if (
+            num < num_ind  # not find enough
+            # and any(val != 0 for val in row)  # all zeros are not independent
+            and is_linear_independent(row, M)  # independent to currently selected
+        ):
+            M.append(row)
+            M_indices.append(i)
+            num += 1
+        # dependent H tensor
+        else:
+            N.append(row)
+            N_indices.append(i)
+    if not num == num_ind:
+        raise RuntimeError("Not enough independent H tensors found.")
+
+    M = matrix_transpose(M)
+    N = matrix_transpose(N)
     M_inv = matrix_inverse(M)
     coeff = matrix_multiply(M_inv, N)
 
-    return coeff
+    return coeff, M_indices, N_indices
 
 
 def get_K(
     all_G: list[LinearCombination],
     coeff: list[list[Fraction]],
+    ind_indices: list[int],
+    dep_indices: list[int],
     indices_group: list[list[int]],
-) -> (list)[LinearCombination]:
+) -> list[LinearCombination]:
     """
 
     Args:
@@ -888,15 +925,11 @@ def get_K(
     Returns:
     """
 
-    num_ind = len(indices_group)
-
     all_K = []
-
-    for i in range(num_ind):
+    for ii, i in enumerate(ind_indices):
         K = all_G[i]
-        for j in range(num_ind, len(all_G)):
-            K += coeff[i][j - num_ind] * all_G[j]
-        # K = simplify_2(K)
+        for jj, j in enumerate(dep_indices):
+            K += coeff[ii][jj] * all_G[j]
         all_K.append(K)
 
     return all_K
