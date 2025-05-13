@@ -452,6 +452,8 @@ def simplify_linear_combination(tensor: LinearCombination) -> LinearCombination:
     lin_comb = []
     for tp_list in categorized.values():
         factor = sum(tp.factor for tp in tp_list)
+        if factor == 0:  # remove zeros
+            continue
         components = tp_list[0].components
         tp = TensorProduct(*components, factor=factor)
         lin_comb.append(tp)
