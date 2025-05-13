@@ -127,7 +127,7 @@ def get_G_H_S_of_j(j: int, n: int, symmetry: str = None) -> tuple[
     list[list[Fraction]],
 ]:
     """
-    Get the G_H_S tensors for a given weight j and dimension n.
+    Get the G, H, S tensors for a given weight j and dimension n.
 
     Args:
         j: weight
@@ -139,13 +139,17 @@ def get_G_H_S_of_j(j: int, n: int, symmetry: str = None) -> tuple[
         H: H corresponding to G
         S: S corresponding to G and H
         g: g_pq matrix
-        h: g_pq matrix
+        h: h_pq matrix
     """
     # create G mapping operator
     if (n - j) % 2 == 0:
         all_G = get_G_even(j, n)
     else:
         all_G = get_G_odd(j, n)
+
+    # WARNING, should not simplify G using the below function, as get_g_matrix() below
+    # is set up to work with the original G tensors.
+    # all_G = [simplify_linear_combination(g) for g in all_G]
 
     # Get numerical S tensors, embedding space j to space n
     all_num_S = [embed(j, G) for G in all_G]
@@ -172,18 +176,20 @@ def get_G_H_S_of_j(j: int, n: int, symmetry: str = None) -> tuple[
         # All G result in zero
         if len(indices_group) == 0:
             all_K = []
+            ind_idx = []
         # Each G form its own group, i.e. all G are independent
         elif len(indices_group) == len(independent_G):
             all_K = independent_G
+            ind_idx = range(len(independent_G))
         # Some G are not unique
         else:
             # TODO, These two can be combined as a single function
-            coeff = get_independent_H_coeff(h_pq, indices_group)
-            all_K = get_K(independent_G, coeff, indices_group)
+            coeff, ind_idx, dep_idx = get_independent_H_coeff(h_pq, indices_group)
+            all_K = get_K(independent_G, coeff, ind_idx, dep_idx, indices_group)
 
         # We use K as G now
         independent_G = all_K
-        independent_H = independent_H[: len(all_K)]
+        independent_H = [independent_H[i] for i in ind_idx]
 
     # Get G, H, and S tensors
     all_G = []
