@@ -1,5 +1,5 @@
 """
-Tabulate tensors G, H, and S.
+Get the tensors G, H, and S.
 
 G, H, and S are made of only the Kronecker delta and Levi-Civita symbols.
 

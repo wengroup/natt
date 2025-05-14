@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
-from natt.tabulate import get_G_H_S
+from natt.ghs import get_G_H_S
 
 
 # TODO, this function should be reimplemented for simplicity, not consider batching

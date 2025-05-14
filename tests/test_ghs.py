@@ -1,8 +1,8 @@
 import pytest
 import torch
 
+from natt.ghs import get_G_H_S
 from natt.sym import symmetrize
-from natt.tabulate import get_G_H_S
 
 
 # TODO, n=1 does not work
