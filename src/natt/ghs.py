@@ -13,6 +13,8 @@ where T' is the embedding of X in the T space.
 from fractions import Fraction
 from pprint import pprint
 
+import torch
+
 from natt.evaluate import embed, evaluate_tensors
 from natt.linearly_independent import (
     get_G_even,
@@ -29,10 +31,11 @@ from natt.matrix import float_matrix, fraction_matrix
 from natt.ops import multiply_2, simplify_linear_combination
 from natt.qr import find_independent_tensors
 from natt.symbolic import LinearCombination
+from natt.symmetrize import symmetrize_and_remove_trace
 from natt.utils import letter_index
 
 
-def get_G_H_S_of_j(j: int, n: int, symmetry: str = None) -> tuple[
+def get_G_H_S_of_j(j: int, n: int, symmetry: str = None, seed: int = 35) -> tuple[
     list[LinearCombination],
     list[LinearCombination],
     list[LinearCombination],
@@ -64,8 +67,11 @@ def get_G_H_S_of_j(j: int, n: int, symmetry: str = None) -> tuple[
     # is set up to work with the original G tensors.
     # all_G = [simplify_linear_combination(g) for g in all_G]
 
-    # Get numerical S tensors, embedding space j to space n
-    all_num_S = [embed(j, G) for G in all_G]
+    # Get numerical S tensors, embedding a random natura tensor X in space j to space n
+    torch.manual_seed(seed)
+    X = torch.randn(3**j).reshape([3] * j)
+    X = symmetrize_and_remove_trace(X)
+    all_num_S = [embed(G, X) for G in all_G]
 
     # Get linearly independent S tensors
     _, independent_indices = find_independent_tensors(all_num_S)
