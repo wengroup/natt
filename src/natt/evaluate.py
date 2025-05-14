@@ -93,63 +93,36 @@ def evaluate_tensors(tensors: LinearCombination, mode: str) -> Tensor:
 
 def extract(H: LinearCombination, T: Tensor) -> Tensor:
     r"""
-    Evaluate X^p,j = H^p(j|n) \odot^n T(n).
+    Evaluate X(j) = H(j|n) \odot^n T(n).
+
+    In G, lower case indices are for r1, r2, ..., rj, and upper case indices are for
+    s1, s2, ..., sn. Here, the upper indices are to be contracted away.
 
     Args:
-        H:
-        T:
+        H: the contraction rule.
+        T: the ordinary tensor T(n) to contract with H.
 
     Returns:
+        X(j) in the space j.
     """
+    # Get numerical values of H
 
-    d = dij()
-    e = eijk()
+    H = simplify_linear_combination(H)
+    H_num = evaluate_tensors(H, mode="H")
 
-    # TODO, we can use evaluate_tensors() in ghs.py to do the below?
-    # Evaluate H and then tensor product with T
-    output = []
-    for tp in H:
-        # create contraction rule
-        indices = [t.indices for t in tp]
-        delta_epsilon_rule = ",".join(indices)
-        X_rule = "".join(sorted([i for i in "".join(indices) if i.islower()]))
+    n = T.dim()
+    j = H_num.dim() - n
 
-        # For odd n-j and j != 0 the index for tau will appear twice, they should be
-        # removed for the S rule. tau will be in epsilon and will be in E, see table
-        # 4 in the writeup.
-        # TODO, but double appearance can be eliminated, since one tau is in delta
-        #  and the other tau is in epsilon. If we use simplify_linear_combination() to
-        #  G at the top of the function, then we can get rid of the double appearance.
-        #  and remove the checking on double appearance.
-        upper = "".join([i for i in "".join(indices) if i.isupper()])
-        T_rule = "".join(sorted([s for s, n in Counter(upper).items() if n == 1]))
+    lower = letter_index(j)
+    upper = letter_index(n, upper_case=True)
+    H_indices = lower + upper
+    T_indices = upper
+    X_indices = lower
+    rule = f"{H_indices},{T_indices}->{X_indices}"
 
-        rule = f"{delta_epsilon_rule},{T_rule}->{X_rule}"
+    out = torch.einsum(rule, H_num, T)
 
-        # get delta and epsilon tensors for contraction
-        delta_epsilon = []
-        seen_epsilon = False
-        for comp in tp:
-            if isinstance(comp, Delta):
-                delta_epsilon.append(d)
-            elif isinstance(comp, Epsilon):
-                if seen_epsilon:
-                    raise ValueError("Only one epsilon tensor is allowed.")
-                else:
-                    seen_epsilon = True
-                delta_epsilon.append(e)
-            else:
-                # tp only consists of delta and epsilon tensors
-                raise ValueError(f"Unexpected type. {type(comp)}")
-
-        # TODO, the rules tensor product epsilons and deltas can be precomputed and
-        #  summed up. Then, we only need a single contraction.
-        #
-        # perform the contraction
-        X = float(tp.factor) * torch.einsum(rule, *delta_epsilon, T)
-        output.append(X)
-
-    return torch.stack(output).sum(dim=0)
+    return out
 
 
 def embed(G: LinearCombination, X: Tensor) -> Tensor:
@@ -173,11 +146,12 @@ def embed(G: LinearCombination, X: Tensor) -> Tensor:
     j = X.dim()
     n = G_num.dim() - j
 
-    r_indices = letter_index(j)
-    n_indices = letter_index(n, upper_case=True)
-    G_indices = n_indices + r_indices
-    X_indices = r_indices
-    rule = f"{G_indices},{X_indices}->{n_indices}"
+    lower = letter_index(j)
+    upper = letter_index(n, upper_case=True)
+    G_indices = upper + lower
+    X_indices = lower
+    S_indices = upper
+    rule = f"{G_indices},{X_indices}->{S_indices}"
 
     out = torch.einsum(rule, G_num, X)
 
