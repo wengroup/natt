@@ -13,12 +13,8 @@ where T' is the embedding of X in the T space.
 from fractions import Fraction
 from pprint import pprint
 
-import torch
-from monty.serialization import dumpfn
-from torch import Tensor
-
+from natt.evaluate import embed, evaluate_tensors
 from natt.linearly_independent import (
-    embed,
     get_G_even,
     get_g_matrix,
     get_G_odd,
@@ -32,91 +28,8 @@ from natt.linearly_independent import (
 from natt.matrix import float_matrix, fraction_matrix
 from natt.ops import multiply_2, simplify_linear_combination
 from natt.qr import find_independent_tensors
-from natt.symbolic import Delta, Epsilon, LinearCombination, TensorProduct
-from natt.utils import dij, eijk, letter_index
-
-
-def tp_delta_epsilon(tp: TensorProduct, mode: str) -> Tensor:
-    """Get the tensor product of Kronecker delta and Levi-Civita tensors.
-
-    Note, the order of the indices need to be taken care of.
-    Upper-case letters are used to represent tensors in the n space (namely for
-    tensors T and such), while lower-case letters are used to represent tensors in the
-    j space (namely for tensors X). So:
-    1. X = H T: H would consist of both lower case and upper-case letters, and its
-       upper-case letters are to be contracted with T. We assume the contracting rule
-       is something like X_ab = H_abABC T_ABC.
-    2. T' = G X: G would consist of both lower case and upper-case letters, and its
-       lower-case letters are to be contracted with X. We assume the contracting rule is
-       something like T'_ABC = G_ABCab X_ab.
-    3. T' = G H T = S T: S would consist of only upper-case letters. We assume the
-       contracting rule is something like T'_ABC = S_ABCDEF T_DEF, where the first
-       half of the indices are associated with the embedded tensor T', while the
-       latter half of the indices are associated with the original tensor T.
-
-    Args:
-        tp: Tensor product of Kronecker delta and Levi-Civita tensors.
-        mode: which mode to use, either `G`, `H`, or `S`. This determines how the
-            output indices are ordered.
-
-    Returns:
-        Tensor product of Kronecker delta and Levi-Civita tensors.
-    """
-    delta_rules = []
-    epsilon_rules = []
-    for t in tp.components:
-        if isinstance(t, Delta):
-            delta_rules.append(t.indices)
-        elif isinstance(t, Epsilon):
-            epsilon_rules.append(t.indices)
-        else:
-            raise ValueError(f"Unknown tensor type: {type(t)}")
-
-    left = ",".join(delta_rules + epsilon_rules)
-
-    # Since the tensors only consists of delta and epsilon, the left rule should be OK,
-    # but the right rule should be ordered according to the mode.
-    right = "".join(delta_rules + epsilon_rules)
-    lower = sorted([c for c in right if c.islower()])
-    upper = sorted([c for c in right if c.isupper()])
-    if mode == "G" or mode == "S":
-        right = "".join(upper + lower)
-    elif mode == "H":
-        right = "".join(lower + upper)
-    else:
-        raise ValueError(f"Unknown mode: {mode}")
-
-    rule = left + "->" + right
-
-    d = dij()
-    e = eijk()
-    deltas = [d for _ in range(len(delta_rules))]
-    epsilons = [e for _ in range(len(epsilon_rules))]
-    data = deltas + epsilons
-
-    product = torch.einsum(rule, *data)
-
-    # multiply factor
-    product = product * float(tp.factor)
-
-    return product
-
-
-def evaluate_tensors(tensors: LinearCombination, mode: str) -> Tensor:
-    """
-    Evaluate the tensor product of Kronecker delta and Levi-Civita tensors to get
-    numerical values.
-    """
-
-    # Evaluate each tensor product
-    output = 0
-    for tp in tensors.components:
-        if isinstance(tp, TensorProduct):
-            output = output + tp_delta_epsilon(tp, mode)
-        else:
-            raise ValueError(f"Unknown tensor type: {type(tp)}")
-
-    return output
+from natt.symbolic import LinearCombination
+from natt.utils import letter_index
 
 
 def get_G_H_S_of_j(j: int, n: int, symmetry: str = None) -> tuple[

@@ -9,14 +9,13 @@ References:
 """
 
 import itertools
-from collections import Counter
 from fractions import Fraction
 from functools import reduce
 from math import gcd
 
 import torch
-from torch import Tensor
 
+from natt.evaluate import extract
 from natt.matrix import matrix_inverse, matrix_multiply, matrix_transpose
 from natt.ops import multiply_2, simplify_linear_combination
 from natt.qr import is_linear_independent
@@ -29,8 +28,8 @@ from natt.symbolic import (
     Scalar,
     TensorProduct,
 )
-from natt.symmetrize import get_permutations_2, symmetrize_and_remove_trace
-from natt.utils import dij, eijk, letter_index
+from natt.symmetrize import get_permutations_2
+from natt.utils import letter_index
 
 
 def get_E(j: int, s_letters: str = None) -> LinearCombination:
@@ -616,121 +615,6 @@ def get_g_matrix(
     return matrix
 
 
-def embed(j: int, G: LinearCombination, X: Tensor = None, seed: int = 35) -> Tensor:
-    r"""
-    Evaluate S(n) = G(n|j) \odot^n X(j).
-
-    Recall, in G, lower case indices are for r1, r2, ..., rj, and upper case indices
-    are for s1, s2, ..., sn.
-
-    Args:
-        G: the contraction rule.
-        X: the natural tensor X(j) to contract with G. If None, a random one is created.
-
-    Return:
-        S(n) in the space n.
-    """
-
-    if X is None:
-        torch.manual_seed(seed)
-        X = torch.randn(3**j).reshape([3] * j)
-        X = symmetrize_and_remove_trace(X)
-
-    d = dij()
-    e = eijk()
-
-    output = []
-    for tp in G:
-        # create contraction rule
-        indices = [t.indices for t in tp]
-        delta_epsilon_rule = ",".join(indices)
-        X_rule = "".join(sorted([i for i in "".join(indices) if i.islower()]))
-
-        # For odd n-j and j != 0 the index for tau will appear twice, they should be
-        # removed for the S rule.
-        upper = "".join([i for i in "".join(indices) if i.isupper()])
-        S_rule = "".join(sorted([s for s, n in Counter(upper).items() if n == 1]))
-
-        rule = f"{delta_epsilon_rule},{X_rule}->{S_rule}"
-
-        # get delta and epsilon tensors for contraction
-        delta_epsilon = []
-        seen_epsilon = False
-        for comp in tp:
-            if isinstance(comp, Delta):
-                delta_epsilon.append(d)
-            elif isinstance(comp, Epsilon):
-                if seen_epsilon:
-                    raise ValueError("Only one epsilon tensor is allowed.")
-                else:
-                    seen_epsilon = True
-                delta_epsilon.append(e)
-            else:
-                raise ValueError("Unexpected type.")
-
-        # TODO, the rules for tensor product epsilons and deltas can be precomputed and
-        #  summed up. Then, we only need a single contraction.
-        # perform the contraction
-        S = float(tp.factor) * torch.einsum(rule, *delta_epsilon, X)
-        output.append(S)
-
-    return torch.stack(output).sum(dim=0)
-
-
-def extract(H: LinearCombination, T: Tensor = None) -> Tensor:
-    r"""
-    Evaluate X^p,j = H^p(j|n) \odot^n T(n).
-
-    Args:
-        H:
-        T:
-
-    Returns:
-    """
-
-    d = dij()
-    e = eijk()
-
-    output = []
-    for tp in H:
-        # create contraction rule
-        indices = [t.indices for t in tp]
-        delta_epsilon_rule = ",".join(indices)
-        X_rule = "".join(sorted([i for i in "".join(indices) if i.islower()]))
-
-        # For odd n-j and j!=0, the index for tau will appear twice, they should be
-        # removed for the T rule.
-        upper = "".join([i for i in "".join(indices) if i.isupper()])
-        T_rule = "".join(sorted([s for s, n in Counter(upper).items() if n == 1]))
-
-        rule = f"{delta_epsilon_rule},{T_rule}->{X_rule}"
-
-        # get delta and epsilon tensors for contraction
-        delta_epsilon = []
-        seen_epsilon = False
-        for comp in tp:
-            if isinstance(comp, Delta):
-                delta_epsilon.append(d)
-            elif isinstance(comp, Epsilon):
-                if seen_epsilon:
-                    raise ValueError("Only one epsilon tensor is allowed.")
-                else:
-                    seen_epsilon = True
-                delta_epsilon.append(e)
-            else:
-                # tp only consists of delta and epsilon tensors
-                raise ValueError(f"Unexpected type. {type(comp)}")
-
-        # TODO, the rules tensor product epsilons and deltas can be precomputed and
-        #  summed up. Then, we only need a single contraction.
-        #
-        # perform the contraction
-        X = float(tp.factor) * torch.einsum(rule, *delta_epsilon, T)
-        output.append(X)
-
-    return torch.stack(output).sum(dim=0)
-
-
 def find_matrix_factorization(
     A: list[list[Fraction]],
 ) -> tuple[Fraction, list[list[int]]]:
@@ -764,6 +648,11 @@ def find_matrix_factorization(
 #  2. multiply_2() to get X = G \odot^n T
 #  3. Simplify_linear_combination() to get the simplified X.
 #  4. Compare X to see if they are the same.
+
+
+#
+# TODO, this can be refactored to remove `symmetry` and provide a tensor `T` as input.
+#
 def group_G_by_symmetry(
     all_G: list[LinearCombination],
     rank: int,
@@ -804,6 +693,14 @@ def group_G_by_symmetry(
     torch.manual_seed(35)
     T = torch.randn(*([3] * rank))
     T = symmetrize(T, symmetry)
+
+    # TODO, delete,  Hard code it
+    # X = torch.randn((3,) * 2)
+    # X = symmetrize_and_remove_trace(X)
+    # Y = torch.randn((3,) * 2)
+    # Y = symmetrize_and_remove_trace(Y)
+    # T = torch.einsum(f"ij,kl->ijkl", X, Y)
+    #####
 
     all_X = [extract(G, T) for G in all_G]
 
