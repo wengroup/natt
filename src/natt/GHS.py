@@ -14,6 +14,7 @@ from fractions import Fraction
 from pprint import pprint
 
 import torch
+from torch import Tensor
 
 from natt.EGH import get_G_even, get_g_matrix, get_G_odd, get_H, shift_index_2
 from natt.evaluate import embed, evaluate_tensors, extract
@@ -66,7 +67,7 @@ def get_G_H_S_of_j(j: int, n: int, symmetry: str = None, seed: int = 35) -> tupl
 
     # Get numerical S tensors, embedding a random natura tensor X in space j to space n
     torch.manual_seed(seed)
-    X = torch.randn(3**j).reshape([3] * j)
+    X = torch.randn((3,) * j)
     X = symmetrize_and_remove_trace(X)
     all_num_S = [embed(G, X) for G in all_G]
 
@@ -87,7 +88,9 @@ def get_G_H_S_of_j(j: int, n: int, symmetry: str = None, seed: int = 35) -> tupl
 
     # Further down select unique G tensors by symmetry
     if symmetry is not None:
-        indices_zero, indices_group = group_G_by_symmetry(independent_G, n, symmetry)
+        T = torch.randn((3,) * n)
+        T = symmetrize(T, symmetry)
+        indices_zero, indices_group = group_G(T, independent_G)
 
         # All G result in zero
         if len(indices_group) == 0:
@@ -234,33 +237,26 @@ if __name__ == "__main__":
 #
 # TODO, this can be refactored to remove `symmetry` and provide a tensor `T` as input.
 #
-def group_G_by_symmetry(
+def group_G(
+    T: Tensor,
     all_G: list[LinearCombination],
-    rank: int,
-    symmetry: str,
     rtol: float = 1e-5,
     atol: float = 1e-6,
 ) -> tuple[list[int], list[list[int]]]:
     r"""
-    Group the G tensors by their uniqueness for a given symmetry.
+    Group the G tensors by their uniqueness when operating on a tensor T.
 
-    This is achieved by numerical experiments (although it can be done symbolically):
-    1. Creating a tensor T with the given symmetry.
-    2. For each G, obtain X = G \odot^n T.
-    3. Check each X to verify whether a) it is zero, or b) it is unique (i.e. a
-       duplicate of another X), and then label the corresponding G accordingly.
+    This is achieved by numerical experiments:
+    1. For each G, obtain X = G \odot^n T.
+    2. Check each X to verify whether:
+        a. it is zero;
+        b) it is unique (i.e. the same as another X),
+    and then label the corresponding G accordingly.
 
     Args:
+        T: the tensor for G to operate on. It can be a general tensor, or tensors of
+            certain symmetry, and it can be traceless too.
         all_G: linear independent G tensors.
-        rank: rank of the tensor
-        symmetry: symmetry specifying the tensor. e.g.
-            - "ij=ji" denotes a rank-2 tensor that is symmetric in the last two indices
-                (e.g. dielectric tensor, stress tensor);
-            - "ijk=ikj" denotes a rank-3 tensor that is symmetric in the last two indices
-                (e.g. piezoelectric tensor).
-            - "ijkl=ijlk=klij" denotes a rank-4 tensor that is symmetric in first two
-            indices, symmetric in last two indices, and symmetric in first-two and
-            last-two indices ( e.g. elastic tensor).
         rtol: relative tolerance for checking if two tensors are equal.
         atol: absolute tolerance for checking if two tensors are equal.
 
@@ -270,31 +266,18 @@ def group_G_by_symmetry(
             equivalent to each other, meaning their corresponding X tensors are the
             same.
     """
-    # Create a tensor T with the specified symmetry
-    torch.manual_seed(35)
-    T = torch.randn(*([3] * rank))
-    T = symmetrize(T, symmetry)
-
-    # TODO, delete,  Hard code it
-    # X = torch.randn((3,) * 2)
-    # X = symmetrize_and_remove_trace(X)
-    # Y = torch.randn((3,) * 2)
-    # Y = symmetrize_and_remove_trace(Y)
-    # T = torch.einsum(f"ij,kl->ijkl", X, Y)
-    #####
-
     all_X = [extract(G, T) for G in all_G]
 
     indices_zero = []
     indices_group = []
     for i, X in enumerate(all_X):
 
-        # 1. Remove zeros
+        # Check zeros
         if torch.allclose(X, torch.tensor(0.0), rtol=rtol, atol=atol):
             indices_zero.append(i)
             continue
 
-        # 2. Create groups of equivalent G tensors
+        # Create groups of equivalent G tensors
         is_unique = True
         for group in indices_group:
             j = group[0]
