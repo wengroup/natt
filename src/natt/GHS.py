@@ -16,7 +16,7 @@ from pprint import pprint
 import torch
 from torch import Tensor
 
-from natt.EGH import get_G_even, get_g_matrix, get_G_odd, get_H, shift_index_2
+from natt.EGH import get_G_even, get_g_matrix, get_G_odd, get_H, get_S
 from natt.evaluate import embed, evaluate_tensors, extract
 from natt.matrix import (
     float_matrix,
@@ -25,7 +25,7 @@ from natt.matrix import (
     matrix_multiply,
     matrix_transpose,
 )
-from natt.ops import multiply_2, simplify_linear_combination
+from natt.ops import simplify_linear_combination
 from natt.qr import find_independent_tensors, is_linear_independent
 from natt.sym import get_random_tensor_of_symmetry
 from natt.symbolic import LinearCombination
@@ -33,25 +33,26 @@ from natt.symmetrize import get_random_symmetric_traceless_tensor
 from natt.utils import letter_index
 
 
-def get_G_H_S_of_j(j: int, n: int, symmetry: str = None) -> tuple[
-    list[LinearCombination],
+def get_G_H_of_j(j: int, n: int) -> tuple[
     list[LinearCombination],
     list[LinearCombination],
     list[list[Fraction]],
     list[list[Fraction]],
 ]:
     """
-    Get the G, H, S tensors for a given weight j and dimension n.
+    Get the independent G and H tensors for a given weight j and rank n.
+
+    Note, here, the independence of G and H are for a general tensor T. For tensors with
+    certain symmetry (e.g. tensor that is the product of two natural tensors),
+    further processing is needed to get the independent G and H tensors.
 
     Args:
-        j: weight
-        n: dim of the space T is in
-        symmetry:
+        j: weight of the natural tensor X
+        n: rank of the ordinary tensor T
 
     Returns:
-        G: independent G tensors of different seniority p
-        H: H corresponding to G
-        S: S corresponding to G and H
+        G: independent G tensors for ordinary tensor
+        H: independent H tensors for ordinary tensor, corresponding to G
         g: g_pq matrix
         h: h_pq matrix
     """
@@ -73,59 +74,138 @@ def get_G_H_S_of_j(j: int, n: int, symmetry: str = None) -> tuple[
     _, independent_indices = find_independent_tensors(all_num_S)
 
     # Get linearly independent G tensors
-    independent_G = [all_G[i] for i in independent_indices]
+    ind_G = [all_G[i] for i in independent_indices]
 
     # Get g_pq matrix for independent G
-    g_pq = get_g_matrix(j, n, independent_G)
+    g = get_g_matrix(j, n, ind_G)
 
     # Get h_pq matrix
-    h_pq = matrix_inverse(g_pq)
+    h = matrix_inverse(g)
 
     # Get H tensors, corresponding to independent G
-    independent_H = get_H(h_pq, independent_G)
+    ind_H = get_H(h, ind_G)
 
-    # Further down select unique G tensors by symmetry
+    return ind_G, ind_H, g, h
+
+
+def combine_G_H_of_j(
+    G: list[LinearCombination],
+    H: list[LinearCombination],
+    n: int,
+    h: list[list[Fraction]],
+    symmetry: str,
+) -> tuple[list[LinearCombination], list[LinearCombination]]:
+    """
+    Combine the G and H tensors based on the symmetry of the tensor.
+
+    For tensors with certain symmetry, the independent G and H tensors obtained via
+    `get_G_H_of_j` are not independent anymore. This functions linearly combines the
+    G and H tensors to obtain new independent G and H tensors.
+
+    Args:
+        G: independent G tensors for ordinary tensor
+        H: independent H tensors for ordinary tensor
+        h: h_pq matrix
+        n: rank of the ordinary tensor T
+        symmetry: symmetry of the tensor in space n, if any. For example,
+            - "ij=ji" means that the target is a fully symmetric rank-2 tensor (e.g.
+                stress tensor);
+            - "ijk=ikj" means that the target is a rank-3 tensor with the last two
+                indices symmetric (e.g. piezoelectric tensor);
+            - "ijk=ikj=jik" means that the target is a fully symmetric rank-3 tensor;
+            - "ijkl=jikl=klij" means that the target is a rank-4 tensor with both minor
+                symmetry (between i and j, and between k and l) and major symmetry (
+                between ij and kl). For example, the elastic tensor has this symmetry;
+            The number of unique letters gives the rank of the tensor (what letters to
+            use does not matter).
+
+    Returns:
+        ind_G: independent G tensors for tensor with symmetry
+        ind_H: independent H tensors for tensor with symmetry, corresponding to G
+    """
+    # Get independency of G by using a random tensor of the given symmetry
+    T = get_random_tensor_of_symmetry(n, symmetry)
+    indices_zero, indices_group = group_G(T, G)
+
+    # All G result in zero
+    if len(indices_group) == 0:
+        K = []
+        ind_idx = []
+    # Each G form its own group, i.e. all G are independent
+    elif len(indices_group) == len(G):
+        K = G
+        ind_idx = range(len(G))
+    # Some G are not unique
+    else:
+        # TODO, These two can be combined as a single function
+        coeff, ind_idx, dep_idx = get_independent_H_coeff(h, indices_group)
+        K = get_K(G, coeff, ind_idx, dep_idx, indices_group)
+
+    # We use K as G now
+    ind_G = K
+    ind_H = [H[i] for i in ind_idx]
+
+    return ind_G, ind_H
+
+
+def get_G_H_S_of_j(
+    j: int, n: int, symmetry: str = None, n1: int = None, n2: int = None
+) -> tuple[
+    list[LinearCombination],
+    list[LinearCombination],
+    list[LinearCombination],
+    list[list[Fraction]],
+    list[list[Fraction]],
+]:
+    """
+    Get the G, H, S tensors for a given weight j and rank n.
+
+    This can handle three types of tensors T.
+    1. Mode 1: General tensor T of rank n. In this case, `symmetry` should be `None`
+       and `n1` and `n2` are ignored.
+    2. Mode 2: Symmetric tensor T of rank n, like dielectric tensor or elastic tensor.
+       Here, `symmetry` should be provided and `n1` and `n2` should be `None`.
+    3. Mode 3: Tensor that is the product of two natural tensors, e.g. T = X \otimes Y.
+
+
+
+    Args:
+        j: weight
+        n: dim of the space T is in
+        symmetry: symmetry of the tensor in space n, if any. For example,
+            - "ij=ji" means that the target is a fully symmetric rank-2 tensor (e.g.
+                stress tensor);
+            - "ijk=ikj" means that the target is a rank-3 tensor with the last two
+                indices symmetric (e.g. piezoelectric tensor);
+            - "ijk=ikj=jik" means that the target is a fully symmetric rank-3 tensor;
+            - "ijkl=jikl=klij" means that the target is a rank-4 tensor with both minor
+                symmetry (between i and j, and between k and l) and major symmetry (
+                between ij and kl). For example, the elastic tensor has this symmetry;
+            The number of unique letters gives the rank of the tensor (what letters to
+            use does not matter).
+
+    Returns:
+        G: independent G tensors of different seniority p
+        H: H corresponding to G
+        S: S corresponding to G and H
+        g: g_pq matrix
+        h: h_pq matrix
+    """
+    # Get independent G and H tensors for a general tensor
+    independent_G, independent_H, g, h = get_G_H_of_j(j, n)
+
+    # Further down select G and H for tensors with symmetry
     if symmetry is not None:
-        T = get_random_tensor_of_symmetry(n, symmetry)
-        indices_zero, indices_group = group_G(T, independent_G)
+        independent_G, independent_H = combine_G_H_of_j(
+            independent_G, independent_H, n, h, symmetry
+        )
 
-        # All G result in zero
-        if len(indices_group) == 0:
-            all_K = []
-            ind_idx = []
-        # Each G form its own group, i.e. all G are independent
-        elif len(indices_group) == len(independent_G):
-            all_K = independent_G
-            ind_idx = range(len(independent_G))
-        # Some G are not unique
-        else:
-            # TODO, These two can be combined as a single function
-            coeff, ind_idx, dep_idx = get_independent_H_coeff(h_pq, indices_group)
-            all_K = get_K(independent_G, coeff, ind_idx, dep_idx, indices_group)
+    # Get S tensors
+    all_G = [simplify_linear_combination(G) for G in independent_G]
+    all_H = [simplify_linear_combination(H) for H in independent_H]
+    all_S = get_S(all_G, all_H, n)
 
-        # We use K as G now
-        independent_G = all_K
-        independent_H = [independent_H[i] for i in ind_idx]
-
-    # Get G, H, and S tensors
-    all_G = []
-    all_H = []
-    all_S = []
-    for i, (G, H) in enumerate(zip(independent_G, independent_H)):
-        G = simplify_linear_combination(G)
-
-        # Shift upper letters of H to distinguish those from G
-        H = shift_index_2(H, n, letter_index(24, upper_case=True))
-        H = simplify_linear_combination(H)
-
-        S = multiply_2(G, H)
-        S = simplify_linear_combination(S)
-
-        all_G.append(G)
-        all_H.append(H)
-        all_S.append(S)
-
-    return all_G, all_H, all_S, g_pq, h_pq
+    return all_G, all_H, all_S, g, h
 
 
 def get_G_H_S(n: int, symmetry: str = None, numerical: bool = True) -> dict:
@@ -372,6 +452,9 @@ def get_K(
     indices_group: list[list[int]],
 ) -> list[LinearCombination]:
     """
+    Get K tensors.
+
+    These will be used as the new G tensors.
 
     Args:
         all_G:
