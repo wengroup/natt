@@ -1,9 +1,4 @@
-from natt.linearly_independent import (
-    get_E,
-    get_E_rules,
-    get_G_even,
-    get_G_odd,
-)
+from natt.EGH import get_E, get_E_rules, get_G_even, get_G_odd
 
 
 def test_get_E_rules():

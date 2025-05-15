@@ -1,6 +1,5 @@
 """
-Symbolic representation of cartesian tensor, product of cartesian tensors, and linear
-combinations of them.
+Symbolic representation of cartesian tensor, tensor product, and linear combinations.
 """
 
 from collections import Counter, defaultdict

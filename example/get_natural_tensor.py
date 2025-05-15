@@ -4,7 +4,7 @@ Example to convert ordinary tensor and natural tensor back and forth.
 
 import torch
 
-from natt.ghs import get_G_H_S
+from natt.GHS import get_G_H_S
 from natt.sym import symmetrize
 from natt.utils import is_symmetric, is_symmetric_traceless, is_traceless
 

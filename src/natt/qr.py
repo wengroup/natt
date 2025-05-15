@@ -1,3 +1,7 @@
+"""
+Find linearly independent tensors using QR decomposition.
+"""
+
 from fractions import Fraction
 
 import torch

@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from natt.ghs import get_G_H_S
+from natt.GHS import get_G_H_S
 from natt.sym import symmetrize
 
 

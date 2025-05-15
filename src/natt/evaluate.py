@@ -1,3 +1,7 @@
+"""
+Evaluating numerical values of G, H, and S tensors and their tensor products.
+"""
+
 from collections import Counter
 
 import torch
