@@ -137,6 +137,17 @@ def generate_permutations(symmetry: str) -> list[tuple[int, ...]]:
     return perms
 
 
+def get_random_tensor_of_symmetry(rank: int, symmetry: str, seed: int = 35) -> Tensor:
+    """
+    Create a random tensor of the given rank and symmetry.
+    """
+    torch.manual_seed(seed)
+    T = torch.randn((3,) * rank)
+    T = symmetrize(T, symmetry)
+
+    return T
+
+
 if __name__ == "__main__":
     sym = "ij=ji"
     perms = generate_permutations(sym)

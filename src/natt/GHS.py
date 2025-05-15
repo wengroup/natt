@@ -27,13 +27,13 @@ from natt.matrix import (
 )
 from natt.ops import multiply_2, simplify_linear_combination
 from natt.qr import find_independent_tensors, is_linear_independent
-from natt.sym import symmetrize
+from natt.sym import get_random_tensor_of_symmetry
 from natt.symbolic import LinearCombination
-from natt.symmetrize import symmetrize_and_remove_trace
+from natt.symmetrize import get_random_symmetric_traceless_tensor
 from natt.utils import letter_index
 
 
-def get_G_H_S_of_j(j: int, n: int, symmetry: str = None, seed: int = 35) -> tuple[
+def get_G_H_S_of_j(j: int, n: int, symmetry: str = None) -> tuple[
     list[LinearCombination],
     list[LinearCombination],
     list[LinearCombination],
@@ -66,9 +66,7 @@ def get_G_H_S_of_j(j: int, n: int, symmetry: str = None, seed: int = 35) -> tupl
     # all_G = [simplify_linear_combination(g) for g in all_G]
 
     # Get numerical S tensors, embedding a random natura tensor X in space j to space n
-    torch.manual_seed(seed)
-    X = torch.randn((3,) * j)
-    X = symmetrize_and_remove_trace(X)
+    X = get_random_symmetric_traceless_tensor(j)
     all_num_S = [embed(G, X) for G in all_G]
 
     # Get linearly independent S tensors
@@ -88,8 +86,7 @@ def get_G_H_S_of_j(j: int, n: int, symmetry: str = None, seed: int = 35) -> tupl
 
     # Further down select unique G tensors by symmetry
     if symmetry is not None:
-        T = torch.randn((3,) * n)
-        T = symmetrize(T, symmetry)
+        T = get_random_tensor_of_symmetry(n, symmetry)
         indices_zero, indices_group = group_G(T, independent_G)
 
         # All G result in zero

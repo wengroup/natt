@@ -447,3 +447,14 @@ def remove_trace_rule(m: int, d: int) -> str:
     return (
         f"...{u_contracted}{u_remain},{','.join(delta)}->...{u_remain}{''.join(delta)}"
     )
+
+
+def get_random_symmetric_traceless_tensor(rank: int, seed: int = 35) -> Tensor:
+    """
+    Create a random symmetric traceless tensor of the given rank.
+    """
+    torch.manual_seed(seed)
+    X = torch.randn((3,) * rank)
+    X = symmetrize_and_remove_trace(X)
+
+    return X
