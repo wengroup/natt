@@ -64,7 +64,7 @@ def get_G_H_S(n: int, symmetry: str = None, numerical: bool = True) -> dict:
             continue
 
         # Get rules and numerical values
-        out_j = _get_G_H_S_rules_and_numerical_values(
+        out_j = get_G_H_S_rules_and_values(
             j, n, G, H, S, g, h, numerical, include_g=True, include_h=True
         )
 
@@ -107,7 +107,7 @@ def get_G_H_S_natural(
             continue
 
         # Get rules and numerical values
-        out_j = _get_G_H_S_rules_and_numerical_values(
+        out_j = get_G_H_S_rules_and_values(
             j, j1 + j2, G, H, S, g, h, numerical, include_g=True, include_h=True
         )
 
@@ -170,15 +170,17 @@ def get_G_H_S_of_j(j: int, n: int, symmetry: str = None) -> tuple[
     return G, H, S, g, h
 
 
-def get_G_H_S_of_j_natural(j1, j2, j3) -> tuple[
-    list[LinearCombination],
-    list[LinearCombination],
-    list[LinearCombination],
+def get_G_H_S_of_j_natural(j1: int, j2: int, j3: int) -> tuple[
+    LinearCombination,
+    LinearCombination,
+    LinearCombination,
     list[list[Fraction]],
     list[list[Fraction]],
 ]:
     """
     Get the G, H, S tensors Z = X \otimes Y, where X and Y are natural tensors.
+
+    There will be a single G, H, S tensors for a given j1, j2, and j3.
 
     Args:
         j1: rank of X
@@ -186,7 +188,7 @@ def get_G_H_S_of_j_natural(j1, j2, j3) -> tuple[
         j3: rank of Z
 
     Returns:
-        G: independent G tensors of different seniority p
+        G: independent G tensor of different seniority p
         H: H corresponding to G
         S: S corresponding to G and H
         g: g_pq matrix
@@ -209,6 +211,12 @@ def get_G_H_S_of_j_natural(j1, j2, j3) -> tuple[
     # Get independency of G by using Z
     _, indices_group = group_G(Z, ind_G)
 
+    if len(indices_group) != 1:
+        raise RuntimeError(
+            "There should only be one group of G tensors, but got "
+            f"{len(indices_group)} groups"
+        )
+
     # Combine G (and H) to create new independent G (and H) tensors
     ind_G, ind_H = combine_G_H_of_j(ind_G, ind_H, h, indices_group)
 
@@ -217,7 +225,8 @@ def get_G_H_S_of_j_natural(j1, j2, j3) -> tuple[
     H = [simplify_linear_combination(H) for H in ind_H]
     S = get_S(G, H, n)
 
-    return G, H, S, g, h
+    # There should only be one G, H, S
+    return G[0], H[0], S[0], g, h
 
 
 def get_G_H_of_j(j: int, n: int) -> tuple[
@@ -321,7 +330,7 @@ def combine_G_H_of_j(
     return ind_G, ind_H
 
 
-def _get_G_H_S_rules_and_numerical_values(
+def get_G_H_S_rules_and_values(
     j: int,
     n: int,
     G,
@@ -333,6 +342,25 @@ def _get_G_H_S_rules_and_numerical_values(
     include_g: bool = True,
     include_h: bool = True,
 ):
+    """
+    Get the numerical values of G, H, S tensors and the rules for performing tensor
+    products.
+
+    Args:
+        j:
+        n:
+        G:
+        H:
+        S:
+        g:
+        h:
+        numerical:
+        include_g:
+        include_h:
+
+    Returns:
+
+    """
 
     out_j = {"G": [], "H": [], "S": []}
 
