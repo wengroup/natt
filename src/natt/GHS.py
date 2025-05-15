@@ -1,5 +1,5 @@
 """
-Get the tensors G, H, and S.
+Symbolic and numerical G, H, S tensors.
 
 G, H, and S are made of only the Kronecker delta and Levi-Civita symbols.
 
@@ -15,21 +15,18 @@ from pprint import pprint
 
 import torch
 
-from natt.evaluate import embed, evaluate_tensors
-from natt.linearly_independent import (
-    get_G_even,
-    get_g_matrix,
-    get_G_odd,
-    get_H,
-    get_independent_H_coeff,
-    get_K,
-    group_G_by_symmetry,
+from natt.EGH import get_G_even, get_g_matrix, get_G_odd, get_H, shift_index_2
+from natt.evaluate import embed, evaluate_tensors, extract
+from natt.matrix import (
+    float_matrix,
+    fraction_matrix,
     matrix_inverse,
-    shift_index_2,
+    matrix_multiply,
+    matrix_transpose,
 )
-from natt.matrix import float_matrix, fraction_matrix
 from natt.ops import multiply_2, simplify_linear_combination
-from natt.qr import find_independent_tensors
+from natt.qr import find_independent_tensors, is_linear_independent
+from natt.sym import symmetrize
 from natt.symbolic import LinearCombination
 from natt.symmetrize import symmetrize_and_remove_trace
 from natt.utils import letter_index
@@ -224,3 +221,193 @@ if __name__ == "__main__":
     out = get_G_H_S(rank, symmetry, numerical=False)
     pprint(out)
     # dumpfn(out, "out.yaml")
+
+
+# TODO, this can be done symbolically. Probably do it.
+#  We need:
+#  1. symbolic symmetrize() to get T. It is implemented in ops.py, but commented out
+#  2. multiply_2() to get X = G \odot^n T
+#  3. Simplify_linear_combination() to get the simplified X.
+#  4. Compare X to see if they are the same.
+
+
+#
+# TODO, this can be refactored to remove `symmetry` and provide a tensor `T` as input.
+#
+def group_G_by_symmetry(
+    all_G: list[LinearCombination],
+    rank: int,
+    symmetry: str,
+    rtol: float = 1e-5,
+    atol: float = 1e-6,
+) -> tuple[list[int], list[list[int]]]:
+    r"""
+    Group the G tensors by their uniqueness for a given symmetry.
+
+    This is achieved by numerical experiments (although it can be done symbolically):
+    1. Creating a tensor T with the given symmetry.
+    2. For each G, obtain X = G \odot^n T.
+    3. Check each X to verify whether a) it is zero, or b) it is unique (i.e. a
+       duplicate of another X), and then label the corresponding G accordingly.
+
+    Args:
+        all_G: linear independent G tensors.
+        rank: rank of the tensor
+        symmetry: symmetry specifying the tensor. e.g.
+            - "ij=ji" denotes a rank-2 tensor that is symmetric in the last two indices
+                (e.g. dielectric tensor, stress tensor);
+            - "ijk=ikj" denotes a rank-3 tensor that is symmetric in the last two indices
+                (e.g. piezoelectric tensor).
+            - "ijkl=ijlk=klij" denotes a rank-4 tensor that is symmetric in first two
+            indices, symmetric in last two indices, and symmetric in first-two and
+            last-two indices ( e.g. elastic tensor).
+        rtol: relative tolerance for checking if two tensors are equal.
+        atol: absolute tolerance for checking if two tensors are equal.
+
+     Returns:
+        indices_zero: Indices of zero G.
+        indices_group: Each inner list contains the indices of G tensors that are
+            equivalent to each other, meaning their corresponding X tensors are the
+            same.
+    """
+    # Create a tensor T with the specified symmetry
+    torch.manual_seed(35)
+    T = torch.randn(*([3] * rank))
+    T = symmetrize(T, symmetry)
+
+    # TODO, delete,  Hard code it
+    # X = torch.randn((3,) * 2)
+    # X = symmetrize_and_remove_trace(X)
+    # Y = torch.randn((3,) * 2)
+    # Y = symmetrize_and_remove_trace(Y)
+    # T = torch.einsum(f"ij,kl->ijkl", X, Y)
+    #####
+
+    all_X = [extract(G, T) for G in all_G]
+
+    indices_zero = []
+    indices_group = []
+    for i, X in enumerate(all_X):
+
+        # 1. Remove zeros
+        if torch.allclose(X, torch.tensor(0.0), rtol=rtol, atol=atol):
+            indices_zero.append(i)
+            continue
+
+        # 2. Create groups of equivalent G tensors
+        is_unique = True
+        for group in indices_group:
+            j = group[0]
+
+            if torch.allclose(X, all_X[j], rtol=rtol, atol=atol):
+                # Equivalent to values in an existing group, then add to the group
+                group.append(i)
+                is_unique = False
+                break
+
+        # Not in existing groups, create a new group
+        if is_unique:
+            indices_group.append([i])
+
+    return indices_zero, indices_group
+
+
+def get_independent_H_coeff(
+    h: list[list[Fraction]], indices_group: list[list[int]]
+) -> tuple[list[list[Fraction]], list[int], list[int]]:
+    """
+    Construct coefficient matrix to combine independent H tensors to obtain other H.
+
+    This is based on the values of the G:
+    1. For GT=0, we ignore the corresponding h_pq.
+    2. For G1, G2...Gq that gives the same GT values, we sum the corresponding h_pq
+    over q.
+
+    Args:
+        h:
+        indices_group:
+
+    Returns:
+        coeff: Each column gives the coefficients of combining independent H to obtain
+            other H.
+        ind_indices: indices of independent H
+        dep_indices: indices of dependent H
+    """
+    num_ind = len(indices_group)
+
+    # Gather coefficients of equivalent G tensors
+    # We have:
+    # H_p = h_p1 G_1 _+ h_p2 G_2 + ... + h_pq G_q
+    # and the G are equivalent in each group.
+    # We obtain:
+    # H_p = u_p1 G_1 + u_p2 G_2 + u_pr G_r
+    # where r is the number of unique groups.
+    u = []
+    for h_p in h:
+        u_p = []
+        for group in indices_group:
+            # sum over the group
+            u_pq = sum(h_p[i] for i in group)
+            u_p.append(u_pq)
+        u.append(u_p)
+
+    # Split the H tensors (u here) into independent ones M and dependent ones N
+    M = []  # independent H
+    M_indices = []  # indices of independent H
+    N = []  # dependent H
+    N_indices = []  # indices of dependent H
+
+    num = 0
+    for i, row in enumerate(u):
+
+        # Independent H tensor
+        if (
+            num < num_ind  # not find enough
+            # and any(val != 0 for val in row)  # all zeros are not independent
+            and is_linear_independent(row, M)  # independent to currently selected
+        ):
+            M.append(row)
+            M_indices.append(i)
+            num += 1
+        # dependent H tensor
+        else:
+            N.append(row)
+            N_indices.append(i)
+    if not num == num_ind:
+        raise RuntimeError("Not enough independent H tensors found.")
+
+    M = matrix_transpose(M)
+    N = matrix_transpose(N)
+    M_inv = matrix_inverse(M)
+    coeff = matrix_multiply(M_inv, N)
+
+    return coeff, M_indices, N_indices
+
+
+def get_K(
+    all_G: list[LinearCombination],
+    coeff: list[list[Fraction]],
+    ind_indices: list[int],
+    dep_indices: list[int],
+    indices_group: list[list[int]],
+) -> list[LinearCombination]:
+    """
+
+    Args:
+        all_G:
+        coeff: Each column gives the coefficients of combining independent H to obtain
+            other H.
+        indices_group: each inner list contains indices of G tensors that are
+            equivalent to each other.
+
+    Returns:
+    """
+
+    all_K = []
+    for ii, i in enumerate(ind_indices):
+        K = all_G[i]
+        for jj, j in enumerate(dep_indices):
+            K += coeff[ii][jj] * all_G[j]
+        all_K.append(K)
+
+    return all_K
