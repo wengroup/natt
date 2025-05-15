@@ -33,6 +33,97 @@ from natt.symmetrize import get_random_symmetric_traceless_tensor
 from natt.utils import letter_index
 
 
+def get_G_H_S(n: int, symmetry: str = None, numerical: bool = True) -> dict:
+    """
+    Get all the G, H, S tensors of dimension n.
+
+    Args:
+        n: dim of the space T is in
+        symmetry: symmetry of the tensor in space n, if any. For example,
+            - "ij=ji" means that the target is a fully symmetric rank-2 tensor (e.g.
+                stress tensor);
+            - "ijk=ikj" means that the target is a rank-3 tensor with the last two
+                indices symmetric (e.g. piezoelectric tensor);
+            - "ijk=ikj=jik" means that the target is a fully symmetric rank-3 tensor;
+            - "ijkl=jikl=klij" means that the target is a rank-4 tensor with both minor
+                symmetry (between i and j, and between k and l) and major symmetry (
+                between ij and kl). For example, the elastic tensor has this symmetry;
+            The number of unique letters gives the rank of the tensor (what letters to
+            use does not matter).
+        numerical: whether to return numerical values of G, H, S.
+
+    Returns:
+        G, H, S, and g_pq, h_pq information.
+    """
+    out = {}
+    for j in range(n + 1):
+        G, H, S, g, h = get_G_H_S_of_j(j, n, symmetry)
+
+        # No natural tensor of this rank
+        if len(G) == 0:
+            continue
+
+        # Get rules and numerical values
+        out_j = _get_G_H_S_rules_and_numerical_values(
+            j, n, G, H, S, g, h, numerical, include_g=True, include_h=True
+        )
+
+        out[j] = out_j
+
+    return out
+
+
+def get_G_H_S_of_j(j: int, n: int, symmetry: str = None) -> tuple[
+    list[LinearCombination],
+    list[LinearCombination],
+    list[LinearCombination],
+    list[list[Fraction]],
+    list[list[Fraction]],
+]:
+    """
+    Get the G, H, S tensors for a given weight j and rank n.
+
+    This can deal with / without symmetry.
+
+    Args:
+        j: weight
+        n: dim of the space T is in
+        symmetry: symmetry of the tensor in space n, if any. For example,
+            - "ij=ji" means that the target is a fully symmetric rank-2 tensor (e.g.
+                stress tensor);
+            - "ijk=ikj" means that the target is a rank-3 tensor with the last two
+                indices symmetric (e.g. piezoelectric tensor);
+            - "ijk=ikj=jik" means that the target is a fully symmetric rank-3 tensor;
+            - "ijkl=jikl=klij" means that the target is a rank-4 tensor with both minor
+                symmetry (between i and j, and between k and l) and major symmetry (
+                between ij and kl). For example, the elastic tensor has this symmetry;
+            The number of unique letters gives the rank of the tensor (what letters to
+            use does not matter).
+
+    Returns:
+        G: independent G tensors of different seniority p
+        H: H corresponding to G
+        S: S corresponding to G and H
+        g: g_pq matrix
+        h: h_pq matrix
+    """
+    # Get independent G and H tensors for a general tensor
+    independent_G, independent_H, g, h = get_G_H_of_j(j, n)
+
+    # Further down select G and H for tensors with symmetry
+    if symmetry is not None:
+        independent_G, independent_H = combine_G_H_of_j(
+            independent_G, independent_H, n, h, symmetry
+        )
+
+    # Get S tensors
+    G = [simplify_linear_combination(G) for G in independent_G]
+    H = [simplify_linear_combination(H) for H in independent_H]
+    S = get_S(G, H, n)
+
+    return G, H, S, g, h
+
+
 def get_G_H_of_j(j: int, n: int) -> tuple[
     list[LinearCombination],
     list[LinearCombination],
@@ -148,159 +239,62 @@ def combine_G_H_of_j(
     return ind_G, ind_H
 
 
-def get_G_H_S_of_j(
-    j: int, n: int, symmetry: str = None, n1: int = None, n2: int = None
-) -> tuple[
-    list[LinearCombination],
-    list[LinearCombination],
-    list[LinearCombination],
-    list[list[Fraction]],
-    list[list[Fraction]],
-]:
-    """
-    Get the G, H, S tensors for a given weight j and rank n.
+def _get_G_H_S_rules_and_numerical_values(
+    j: int,
+    n: int,
+    G,
+    H,
+    S,
+    g,
+    h,
+    numerical: bool = True,
+    include_g: bool = True,
+    include_h: bool = True,
+):
 
-    This can handle three types of tensors T.
-    1. Mode 1: General tensor T of rank n. In this case, `symmetry` should be `None`
-       and `n1` and `n2` are ignored.
-    2. Mode 2: Symmetric tensor T of rank n, like dielectric tensor or elastic tensor.
-       Here, `symmetry` should be provided and `n1` and `n2` should be `None`.
-    3. Mode 3: Tensor that is the product of two natural tensors, e.g. T = X \otimes Y.
+    out_j = {"G": [], "H": [], "S": []}
 
+    if include_g:
+        out_j["g_pq"] = {"symbolic": fraction_matrix(g), "numerical": float_matrix(g)}
 
+    if include_h:
+        out_j["h_pq"] = {"symbolic": fraction_matrix(h), "numerical": float_matrix(h)}
 
-    Args:
-        j: weight
-        n: dim of the space T is in
-        symmetry: symmetry of the tensor in space n, if any. For example,
-            - "ij=ji" means that the target is a fully symmetric rank-2 tensor (e.g.
-                stress tensor);
-            - "ijk=ikj" means that the target is a rank-3 tensor with the last two
-                indices symmetric (e.g. piezoelectric tensor);
-            - "ijk=ikj=jik" means that the target is a fully symmetric rank-3 tensor;
-            - "ijkl=jikl=klij" means that the target is a rank-4 tensor with both minor
-                symmetry (between i and j, and between k and l) and major symmetry (
-                between ij and kl). For example, the elastic tensor has this symmetry;
-            The number of unique letters gives the rank of the tensor (what letters to
-            use does not matter).
+    # loop over seniority p
+    for G_p, H_p, S_p in zip(G, H, S):
 
-    Returns:
-        G: independent G tensors of different seniority p
-        H: H corresponding to G
-        S: S corresponding to G and H
-        g: g_pq matrix
-        h: h_pq matrix
-    """
-    # Get independent G and H tensors for a general tensor
-    independent_G, independent_H, g, h = get_G_H_of_j(j, n)
+        lower = letter_index(j)
+        upper = letter_index(n, upper_case=True)
+        upper2 = letter_index(n, start=n, upper_case=True)
 
-    # Further down select G and H for tensors with symmetry
-    if symmetry is not None:
-        independent_G, independent_H = combine_G_H_of_j(
-            independent_G, independent_H, n, h, symmetry
+        # G
+        out_j["G"].append(
+            {
+                "symbolic": str(G_p),
+                "rule": (f"{upper}{lower},...{lower}->...{upper}"),
+            },
         )
+        if numerical:
+            out_j["G"][-1]["numerical"] = evaluate_tensors(G_p, mode="G")
 
-    # Get S tensors
-    all_G = [simplify_linear_combination(G) for G in independent_G]
-    all_H = [simplify_linear_combination(H) for H in independent_H]
-    all_S = get_S(all_G, all_H, n)
+        # H
+        out_j["H"].append(
+            {"symbolic": str(H_p), "rule": f"{lower}{upper},...{upper}->...{lower}"}
+        )
+        if numerical:
+            out_j["H"][-1]["numerical"] = evaluate_tensors(H_p, mode="H")
 
-    return all_G, all_H, all_S, g, h
+        # S
+        out_j["S"].append(
+            {
+                "symbolic": str(S_p),
+                "rule": f"{upper}{upper2},...{upper2}->...{upper}",
+            }
+        )
+        if numerical:
+            out_j["S"][-1]["numerical"] = evaluate_tensors(S_p, mode="S")
 
-
-def get_G_H_S(n: int, symmetry: str = None, numerical: bool = True) -> dict:
-    """
-    Get all the G, H, S tensors of dimension n.
-
-    Args:
-        n: dim of the space T is in
-        symmetry: symmetry of the tensor in space n, if any. For example,
-            - "ij=ji" means that the target is a fully symmetric rank-2 tensor (e.g.
-                stress tensor);
-            - "ijk=ikj" means that the target is a rank-3 tensor with the last two
-                indices symmetric (e.g. piezoelectric tensor);
-            - "ijk=ikj=jik" means that the target is a fully symmetric rank-3 tensor;
-            - "ijkl=jikl=klij" means that the target is a rank-4 tensor with both minor
-                symmetry (between i and j, and between k and l) and major symmetry (
-                between ij and kl). For example, the elastic tensor has this symmetry;
-            The number of unique letters gives the rank of the tensor (what letters to
-            use does not matter).
-        numerical: whether to return numerical values of G, H, S.
-
-    Returns:
-        G, H, S, and g_pq, h_pq information.
-    """
-    out = {}
-    for j in range(n + 1):
-        G, H, S, g, h = get_G_H_S_of_j(j, n, symmetry)
-
-        # There is no natural tensor of this rank
-        if len(G) == 0:
-            continue
-
-        out_j = {
-            "g_pq": {"symbolic": fraction_matrix(g), "numerical": float_matrix(g)},
-            "h_pq": {"symbolic": fraction_matrix(h), "numerical": float_matrix(h)},
-            "G": [],
-            "H": [],
-            "S": [],
-        }
-
-        # loop over seniority p
-        for G_p, H_p, S_p in zip(G, H, S):
-
-            lower = letter_index(j)
-            upper = letter_index(n, upper_case=True)
-            upper2 = letter_index(n, start=n, upper_case=True)
-
-            # G
-            out_j["G"].append(
-                {
-                    "symbolic": str(G_p),
-                    "rule": (f"{upper}{lower},...{lower}->...{upper}"),
-                },
-            )
-            if numerical:
-                out_j["G"][-1]["numerical"] = evaluate_tensors(G_p, mode="G")
-
-            # H
-            out_j["H"].append(
-                {"symbolic": str(H_p), "rule": f"{lower}{upper},...{upper}->...{lower}"}
-            )
-            if numerical:
-                out_j["H"][-1]["numerical"] = evaluate_tensors(H_p, mode="H")
-
-            # S
-            out_j["S"].append(
-                {
-                    "symbolic": str(S_p),
-                    "rule": f"{upper}{upper2},...{upper2}->...{upper}",
-                }
-            )
-            if numerical:
-                out_j["S"][-1]["numerical"] = evaluate_tensors(S_p, mode="S")
-
-        out[j] = out_j
-
-    return out
-
-
-if __name__ == "__main__":
-
-    # # elastic tensor
-    # j = 4
-    # rank = 4
-    # symmetry = "ijkl=jikl=klij"
-    # get_G_H_S_of_j(j, rank, symmetry)
-
-    ######
-    # rank = 2
-    # symmetry = "ij=ji"
-    rank = 4
-    symmetry = "ijkl=jikl=klij"
-    out = get_G_H_S(rank, symmetry, numerical=False)
-    pprint(out)
-    # dumpfn(out, "out.yaml")
+    return out_j
 
 
 # TODO, this can be done symbolically. Probably do it.
@@ -474,3 +468,21 @@ def get_K(
         all_K.append(K)
 
     return all_K
+
+
+if __name__ == "__main__":
+
+    # # elastic tensor
+    # j = 4
+    # rank = 4
+    # symmetry = "ijkl=jikl=klij"
+    # get_G_H_S_of_j(j, rank, symmetry)
+
+    ######
+    # rank = 2
+    # symmetry = "ij=ji"
+    rank = 4
+    symmetry = "ijkl=jikl=klij"
+    out = get_G_H_S(rank, symmetry, numerical=False)
+    pprint(out)
+    # dumpfn(out, "out.yaml")
