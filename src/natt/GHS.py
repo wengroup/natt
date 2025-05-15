@@ -112,8 +112,13 @@ def get_G_H_S_of_j(j: int, n: int, symmetry: str = None) -> tuple[
 
     # Further down select G and H for tensors with symmetry
     if symmetry is not None:
+        # Get independency of G by using a random tensor of the given symmetry
+        T = get_random_tensor_of_symmetry(n, symmetry)
+        _, indices_group = group_G(T, independent_G)
+
+        # Combine G (and H) to create new independent G (and H) tensors
         independent_G, independent_H = combine_G_H_of_j(
-            independent_G, independent_H, n, h, symmetry
+            independent_G, independent_H, h, indices_group
         )
 
     # Get S tensors
@@ -182,9 +187,8 @@ def get_G_H_of_j(j: int, n: int) -> tuple[
 def combine_G_H_of_j(
     G: list[LinearCombination],
     H: list[LinearCombination],
-    n: int,
     h: list[list[Fraction]],
-    symmetry: str,
+    indices_group: list[list[int]],
 ) -> tuple[list[LinearCombination], list[LinearCombination]]:
     """
     Combine the G and H tensors based on the symmetry of the tensor.
@@ -197,26 +201,13 @@ def combine_G_H_of_j(
         G: independent G tensors for ordinary tensor
         H: independent H tensors for ordinary tensor
         h: h_pq matrix
-        n: rank of the ordinary tensor T
-        symmetry: symmetry of the tensor in space n, if any. For example,
-            - "ij=ji" means that the target is a fully symmetric rank-2 tensor (e.g.
-                stress tensor);
-            - "ijk=ikj" means that the target is a rank-3 tensor with the last two
-                indices symmetric (e.g. piezoelectric tensor);
-            - "ijk=ikj=jik" means that the target is a fully symmetric rank-3 tensor;
-            - "ijkl=jikl=klij" means that the target is a rank-4 tensor with both minor
-                symmetry (between i and j, and between k and l) and major symmetry (
-                between ij and kl). For example, the elastic tensor has this symmetry;
-            The number of unique letters gives the rank of the tensor (what letters to
-            use does not matter).
+        indices_group: each inner list contains indices of G tensors that are equivalent
+        to each other.
 
     Returns:
         ind_G: independent G tensors for tensor with symmetry
         ind_H: independent H tensors for tensor with symmetry, corresponding to G
     """
-    # Get independency of G by using a random tensor of the given symmetry
-    T = get_random_tensor_of_symmetry(n, symmetry)
-    indices_zero, indices_group = group_G(T, G)
 
     # All G result in zero
     if len(indices_group) == 0:
