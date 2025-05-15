@@ -449,7 +449,7 @@ def remove_trace_rule(m: int, d: int) -> str:
     )
 
 
-def get_random_symmetric_traceless_tensor(rank: int, seed: int = 35) -> Tensor:
+def get_random_natural_tensor(rank: int, seed: int = 35) -> Tensor:
     """
     Create a random symmetric traceless tensor of the given rank.
     """

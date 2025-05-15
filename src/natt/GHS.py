@@ -29,7 +29,7 @@ from natt.ops import simplify_linear_combination
 from natt.qr import find_independent_tensors, is_linear_independent
 from natt.sym import get_random_tensor_of_symmetry
 from natt.symbolic import LinearCombination
-from natt.symmetrize import get_random_symmetric_traceless_tensor
+from natt.symmetrize import get_random_natural_tensor
 from natt.utils import letter_index
 
 
@@ -73,6 +73,49 @@ def get_G_H_S(n: int, symmetry: str = None, numerical: bool = True) -> dict:
     return out
 
 
+def get_G_H_S_natural(
+    j1: int, j2: int, max_j3: int = None, numerical: bool = True
+) -> dict:
+    """
+    Get all the G, H, S tensors of a tensor product of two natural tensors.
+
+    Z = X \otimes Y, where X and Y are natural tensors.
+
+    Args:
+        j1: rank of X
+        j2: rank of Y
+        max_j3: rank of Z. The output will have ranks of abs(j1-j2) <= j3 <= max_j3.
+            If max_j3 is None, it will be set to j1 + j2.
+        numerical: whether to return numerical values of G, H, S.
+
+    Returns:
+        G, H, S, and g_pq, h_pq information corresponding to Z.
+    """
+
+    if max_j3 is None:
+        max_j3 = j1 + j2
+    else:
+        if max_j3 > j1 + j2:
+            raise ValueError("`max_j3` must be smaller than or equal to `j1 + j2`.")
+
+    out = {}
+    for j in range(abs(j1 - j2), max_j3 + 1):
+        G, H, S, g, h = get_G_H_S_of_j_natural(j1, j2, j)
+
+        # No natural tensor of this rank
+        if len(G) == 0:
+            continue
+
+        # Get rules and numerical values
+        out_j = _get_G_H_S_rules_and_numerical_values(
+            j, j1 + j2, G, H, S, g, h, numerical, include_g=True, include_h=True
+        )
+
+        out[j] = out_j
+
+    return out
+
+
 def get_G_H_S_of_j(j: int, n: int, symmetry: str = None) -> tuple[
     list[LinearCombination],
     list[LinearCombination],
@@ -108,22 +151,70 @@ def get_G_H_S_of_j(j: int, n: int, symmetry: str = None) -> tuple[
         h: h_pq matrix
     """
     # Get independent G and H tensors for a general tensor
-    independent_G, independent_H, g, h = get_G_H_of_j(j, n)
+    ind_G, ind_H, g, h = get_G_H_of_j(j, n)
 
     # Further down select G and H for tensors with symmetry
     if symmetry is not None:
         # Get independency of G by using a random tensor of the given symmetry
         T = get_random_tensor_of_symmetry(n, symmetry)
-        _, indices_group = group_G(T, independent_G)
+        _, indices_group = group_G(T, ind_G)
 
         # Combine G (and H) to create new independent G (and H) tensors
-        independent_G, independent_H = combine_G_H_of_j(
-            independent_G, independent_H, h, indices_group
-        )
+        ind_G, ind_H = combine_G_H_of_j(ind_G, ind_H, h, indices_group)
 
     # Get S tensors
-    G = [simplify_linear_combination(G) for G in independent_G]
-    H = [simplify_linear_combination(H) for H in independent_H]
+    G = [simplify_linear_combination(G) for G in ind_G]
+    H = [simplify_linear_combination(H) for H in ind_H]
+    S = get_S(G, H, n)
+
+    return G, H, S, g, h
+
+
+def get_G_H_S_of_j_natural(j1, j2, j3) -> tuple[
+    list[LinearCombination],
+    list[LinearCombination],
+    list[LinearCombination],
+    list[list[Fraction]],
+    list[list[Fraction]],
+]:
+    """
+    Get the G, H, S tensors Z = X \otimes Y, where X and Y are natural tensors.
+
+    Args:
+        j1: rank of X
+        j2: rank of Y
+        j3: rank of Z
+
+    Returns:
+        G: independent G tensors of different seniority p
+        H: H corresponding to G
+        S: S corresponding to G and H
+        g: g_pq matrix
+        h: h_pq matrix
+    """
+    n = j1 + j2
+
+    # Get independent G and H tensors for a general tensor
+    ind_G, ind_H, g, h = get_G_H_of_j(j3, n)
+
+    # Further down select G and H for tensors with symmetry
+
+    # Create a random tensor Z = X \otimes Y
+    X = get_random_natural_tensor(j1, seed=35)
+    Y = get_random_natural_tensor(j2, seed=36)
+    X_indices = letter_index(j1)
+    Y_indices = letter_index(j2, start=j1)
+    Z = torch.einsum(f"{X_indices},{Y_indices}->{X_indices}{Y_indices}", X, Y)
+
+    # Get independency of G by using Z
+    _, indices_group = group_G(Z, ind_G)
+
+    # Combine G (and H) to create new independent G (and H) tensors
+    ind_G, ind_H = combine_G_H_of_j(ind_G, ind_H, h, indices_group)
+
+    # Get S tensors
+    G = [simplify_linear_combination(G) for G in ind_G]
+    H = [simplify_linear_combination(H) for H in ind_H]
     S = get_S(G, H, n)
 
     return G, H, S, g, h
@@ -163,7 +254,7 @@ def get_G_H_of_j(j: int, n: int) -> tuple[
     # all_G = [simplify_linear_combination(g) for g in all_G]
 
     # Get numerical S tensors, embedding a random natura tensor X in space j to space n
-    X = get_random_symmetric_traceless_tensor(j)
+    X = get_random_natural_tensor(j)
     all_num_S = [embed(G, X) for G in all_G]
 
     # Get linearly independent S tensors
