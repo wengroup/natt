@@ -1,8 +1,9 @@
 import pytest
 import torch
 
-from natt.GHS import get_G_H_S
+from natt.GHS import get_G_H_S, get_G_H_S_natural
 from natt.sym import symmetrize
+from natt.symmetrize import get_random_natural_tensor
 
 
 # TODO, n=1 does not work
@@ -29,7 +30,7 @@ def test_get_G_H_S(rank, symmetry):
         rank: rank of the tensor T
     """
     torch.manual_seed(35)
-    T = torch.randn(*[3] * rank)
+    T = torch.randn((3,) * rank)
 
     # symmetrize the tensor if `symmetry` is not None
     if symmetry is not None:
@@ -60,3 +61,44 @@ def test_get_G_H_S(rank, symmetry):
     sum_T_prime = torch.sum(torch.stack(all_T_prime), dim=0)
 
     assert torch.allclose(sum_T_prime, T)
+
+
+@pytest.mark.parametrize(
+    "j1,j2",
+    [
+        (0, 1),
+        (0, 2),
+        (1, 1),
+        (1, 2),
+        (2, 2),
+    ],
+)
+def test_get_G_H_S_natural(j1: int, j2: int):
+    rank = j1 + j2
+    T = get_random_natural_tensor(rank)
+
+    output = get_G_H_S_natural(j1, j2)
+
+    all_T_prime = []
+    for j, out_j in output.items():
+
+        for p, (H, G, S) in enumerate(zip(out_j["H"], out_j["G"], out_j["S"])):
+            # X = H T
+            X = torch.einsum(H["rule"], H["numerical"], T)
+
+            # T' = G X
+            T_p_1 = torch.einsum(G["rule"], G["numerical"], X)
+
+            # T' = S T
+            T_p_2 = torch.einsum(S["rule"], S["numerical"], T)
+
+            # T_p_1 and T_p_2 should be equal
+            assert torch.allclose(T_p_1, T_p_2, rtol=1e-5, atol=1e-6), (
+                f"T_p_1 and T_p_2 are not equal for j=" f"{j}, p={p}"
+            )
+
+            all_T_prime.append(T_p_1)
+
+    sum_T_prime = torch.sum(torch.stack(all_T_prime), dim=0)
+
+    assert torch.allclose(sum_T_prime, T, rtol=1e-5, atol=1e-6)
