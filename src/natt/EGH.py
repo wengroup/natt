@@ -138,13 +138,13 @@ def get_G_odd(j: int, n: int) -> list[LinearCombination]:
 
 
 def get_H(
-    h_pq: list[list[Fraction]], G: list[LinearCombination]
+    h: list[list[Fraction]], G: list[LinearCombination]
 ) -> list[LinearCombination]:
     r"""
     Get the H mapping: H^p = \sum_q h_pq G^q.
     """
     H = []
-    for row in h_pq:
+    for row in h:
         tensors = []
         for h_q, G_q in zip(row, G):
             if h_q == 0:
@@ -154,6 +154,36 @@ def get_H(
         H.append(LinearCombination(*tensors))
 
     return H
+
+
+def get_S(
+    G: list[LinearCombination], H: list[LinearCombination], n: int
+) -> list[LinearCombination]:
+    """
+    Get S tensors for a given G and H.
+
+    S = G \odot^j H
+
+    Args:
+        G: G tensors
+        H: H tensors. The order of H tensors should correspond to the order of G.
+
+    Returns:
+        S: S tensors
+    """
+
+    S = []
+    for i, (G_i, H_i) in enumerate(zip(G, H)):
+
+        # Shift upper letters of H to distinguish those from G
+        H_i = shift_index_2(H_i, n, letter_index(24, upper_case=True))
+
+        S_i = multiply_2(G_i, H_i)
+        S_i = simplify_linear_combination(S_i)
+
+        S.append(S_i)
+
+    return S
 
 
 def create_delta_tensors(rule: list[str], factor: int | Fraction = 1) -> TensorProduct:
