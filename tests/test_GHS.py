@@ -4,6 +4,7 @@ import torch
 from natt.GHS import get_G_H_S, get_G_H_S_natural
 from natt.sym import symmetrize
 from natt.symmetrize import get_random_natural_tensor
+from natt.utils import letter_index
 
 
 # TODO, n=1 does not work
@@ -74,8 +75,13 @@ def test_get_G_H_S(rank, symmetry):
     ],
 )
 def test_get_G_H_S_natural(j1: int, j2: int):
-    rank = j1 + j2
-    T = get_random_natural_tensor(rank)
+
+    # Create T = T1 \otimes T2
+    T1 = get_random_natural_tensor(j1, 35)
+    T2 = get_random_natural_tensor(j2, 36)
+    idx1 = letter_index(j1)
+    idx2 = letter_index(j2, start=j1)
+    T = torch.einsum(f"{idx1},{idx2}->{idx1}{idx2}", T1, T2)
 
     output = get_G_H_S_natural(j1, j2)
 

@@ -108,7 +108,7 @@ def get_G_H_S_natural(
 
         # Get rules and numerical values
         out_j = get_G_H_S_rules_and_values(
-            j, j1 + j2, G, H, S, g, h, numerical, include_g=True, include_h=True
+            j, j1 + j2, [G], [H], [S], g, h, numerical, include_g=True, include_h=True
         )
 
         out[j] = out_j
@@ -333,11 +333,11 @@ def combine_G_H_of_j(
 def get_G_H_S_rules_and_values(
     j: int,
     n: int,
-    G,
-    H,
-    S,
-    g,
-    h,
+    G: list[LinearCombination],
+    H: list[LinearCombination],
+    S: list[LinearCombination],
+    g: list[list[Fraction]],
+    h: list[list[Fraction]],
     numerical: bool = True,
     include_g: bool = True,
     include_h: bool = True,
