@@ -254,7 +254,7 @@ def get_E_rules(j: int, t: int, s_letters: str = None) -> list[dict[str, list[st
         # indices for d_{rr}^t
         rr_pairs = [r_indices[i] + r_indices[i + 1] for i in range(start, j, 2)]
 
-        # permute the remaining indices that will be used for d_{rs}^{j-2t}
+        # permute the remaining r indices that will be used for d_{rs}^{j-2t}
         r_remaining = r_indices[:start]
         r_remaining_perms = list(itertools.permutations(r_remaining))
 
@@ -264,7 +264,8 @@ def get_E_rules(j: int, t: int, s_letters: str = None) -> list[dict[str, list[st
             # indices for d_{ss}^t
             ss_pairs = [s_indices[i] + s_indices[i + 1] for i in range(start, j, 2)]
 
-            # permute the remaining indices that will be used for d_{rs}^{j-2t}
+            # get the remaining s indices that will be used for d_{rs}^{j-2t}
+            # no need to permute it, since it is to be combined with r_remaining
             s_remaining = s_indices[:start]
 
             # Create indices permutations for d_{rs}^{j-2t}

@@ -51,7 +51,10 @@ def tp_delta_epsilon(tp: TensorProduct, mode: str) -> Tensor:
     left = ",".join(delta_rules + epsilon_rules)
 
     # Since the tensors only consists of delta and epsilon, the left rule should be OK,
-    # but the right rule should be ordered according to the mode.
+    # because of the `major` symmetric in them, e.g. d_ij d_kl = d_kl d_ij.
+    # But, the right rule should be ordered according to the mode. The order of the
+    # lower (or upper) indices does not matter, since this function is only used for
+    # G, H, and S, and all three of them are symmetric.
     right = "".join(delta_rules + epsilon_rules)
     lower = sorted([c for c in right if c.islower()])
     upper = sorted([c for c in right if c.isupper()])
@@ -88,7 +91,7 @@ def evaluate_tensors(tensors: LinearCombination, mode: str) -> Tensor:
     output = 0
     for tp in tensors.components:
         if isinstance(tp, TensorProduct):
-            output = output + tp_delta_epsilon(tp, mode)
+            output += tp_delta_epsilon(tp, mode)
         else:
             raise ValueError(f"Unknown tensor type: {type(tp)}")
 
