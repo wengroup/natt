@@ -55,13 +55,15 @@ def get_E(j: int, s_letters: str = None) -> LinearCombination:
         # get all rules
         all_rules = get_E_rules(j, t, s_letters)
 
-        # Total factor: c * 1/len(all_rules), where 1/len(all_rules) averages over all
+        # Total factor: c / len(all_rules), where len(all_rules) averages over all
         # the rules.
-        factor = Fraction(1, len(all_rules)) * c
+        factor = c / len(all_rules)
 
         # create tensor products of deltas for each rule
         delta_tensors = [
-            create_delta_tensors(rule["d_rs"] + rule["d_rr"] + rule["d_ss"], factor)
+            create_delta_epsilon_tensors(
+                rule["d_rs"] + rule["d_rr"] + rule["d_ss"], factor=factor
+            )
             for rule in all_rules
         ]
 
@@ -97,7 +99,7 @@ def get_G_even(j: int, n: int) -> list[LinearCombination]:
     all_G = []
     for si, rule in zip(E_s_letters, delta_rules):
         E_j = get_E(j, s_letters=si)
-        f_q = create_delta_tensors(rule)
+        f_q = create_delta_epsilon_tensors(rule)
         G = multiply_2(E_j, f_q)
         all_G.append(G)
 
@@ -130,7 +132,7 @@ def get_G_odd(j: int, n: int) -> list[LinearCombination]:
     for si, e_rule, d_rule in zip(E_s_letters, f_epsilon_rules, f_delta_rules):
         E_j = get_E(j, s_letters=si)
         f_q_epsilon = Epsilon(e_rule)
-        f_q_delta = create_delta_tensors(d_rule)
+        f_q_delta = create_delta_epsilon_tensors(d_rule)
         G = multiply_2(E_j, f_q_epsilon, f_q_delta)
         all_G.append(G)
 
@@ -186,11 +188,17 @@ def get_S(
     return S
 
 
-def create_delta_tensors(rule: list[str], factor: int | Fraction = 1) -> TensorProduct:
-    """Create a Tensors object for deltas given the rules.
+def create_delta_epsilon_tensors(
+    rule: list[str], epsilon: str = None, factor: int | Fraction = 1
+) -> TensorProduct:
+    """Create a TensorProduct of deltas and epsilons.
+
+    Currently, we only support a single epsilon tensor in the product, because it is
+    all needed to create the E, G, H tensors.
 
     Args:
         rule: Each string contains a pair of indices for a delta tensor.
+        epsilon: A three letter string for the epsilon tensor.
         factor: additional factor to multiply with the tensor product
 
     Returns:
@@ -198,6 +206,11 @@ def create_delta_tensors(rule: list[str], factor: int | Fraction = 1) -> TensorP
     """
 
     tensors = [Delta(pair) for pair in rule]
+
+    if epsilon is not None:
+        e = Epsilon(epsilon)
+        tensors.append(e)
+
     tp = TensorProduct(*tensors, factor=factor)
 
     return tp
