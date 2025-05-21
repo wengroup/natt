@@ -318,7 +318,7 @@ def get_H_rules_odd(l1: int, l2: int, l3: int, t: int) -> list[dict[str, list[st
 
     k = (l1 + l2 - l3 - 1) // 2
 
-    # r:X, s:Y, a:Z
+    # r indices for X, s indices for Y, a indices for Z
     r_idx = letter_index(l1, upper_case=True)
     s_idx = letter_index(l2, start=l1, upper_case=True)
     a_idx = letter_index(l3)

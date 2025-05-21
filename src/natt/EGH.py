@@ -45,10 +45,10 @@ def get_E(j: int, s_letters: str = None) -> LinearCombination:
     k = j // 2
 
     out = []
-    c = 1  # c for t = 0
+    c = Fraction(1, 1)  # c for t = 0
     for t in range(k + 1):
         if t > 0:
-            c = -c * Fraction(
+            c *= -Fraction(
                 (j - 2 * t + 2) * (j - 2 * t + 1), 2 * t * (2 * j - 2 * t + 1)
             )
 
