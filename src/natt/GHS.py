@@ -81,6 +81,8 @@ def get_G_H_S_natural(
 
     Z = X \otimes Y, where X and Y are natural tensors.
 
+    This uses the general method to do it. We also have a specific way, in H_tp.py.
+
     Args:
         j1: rank of X
         j2: rank of Y
