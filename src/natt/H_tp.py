@@ -1,9 +1,9 @@
 """
 Tensor operator to get Z = X \otimes Y.
 
-This is based on our newly derived formulas (\label{eq:tp:even:H} and \label{
-eq:tp:even:H}) to get Z_l3 as: Z_l3 = H : X_l1 Y_l2, where : denotes contraction with X
-and Y.
+This is based on our newly derived formulas (\label{eq:tp:even:H} and
+\label{eq:tp:odd:H}) to get Z_l3 as: Z_l3 = H : X_l1 Y_l2, where : denotes contraction
+with X and Y.
 Unlike the equations in [LP89], which needs a loop to compute Z, the newly derived is
 much more efficient as it just need a single tensor product.
 
@@ -17,7 +17,7 @@ from typing import Optional
 import torch
 from torch import Tensor
 
-from natt.EGH import create_delta_tensors
+from natt.EGH import create_delta_epsilon_tensors
 from natt.evaluate import evaluate_tensors
 from natt.ops import simplify_linear_combination
 from natt.symbolic import LinearCombination
@@ -73,8 +73,45 @@ def get_H_numerical_even(
             f"Unknown normalization method: {normalize}. Supported are: {supported}."
         )
 
-    # Rule that can be used in einsum to obtain Z
-    # Z = einsum(rule, G, X, Y)
+    # Rule that can be used in einsum to obtain Z = einsum(rule, G, X, Y)
+    rule = f"{Z_idx}{X_idx}{Y_idx},...{X_idx},...{Y_idx}->...{Z_idx}"
+
+    return H_numerical, rule
+
+
+def get_H_numerical_odd(
+    l1: int,
+    l2: int,
+    l3: int,
+    normalize: str = "unity",
+) -> tuple[Tensor, str]:
+    """
+
+    Args:
+        l1:
+        l2:
+        l3:
+        normalize:
+
+    Returns:
+    """
+    H, X_idx, Y_idx, Z_idx = get_H_odd(l1, l2, l3)
+    H = simplify_linear_combination(H)
+
+    H_numerical = evaluate_tensors(H, mode="H")
+
+    if normalize == "unity":
+        c = coeff_D(l1, l2, l3)
+        H_numerical *= c
+    elif normalize == "none":
+        pass
+    else:
+        supported = ["none", "unity"]
+        raise ValueError(
+            f"Unknown normalization method: {normalize}. Supported are: {supported}."
+        )
+
+    # Rule that can be used in einsum to obtain Z = einsum(rule, G, X, Y)
     rule = f"{Z_idx}{X_idx}{Y_idx},...{X_idx},...{Y_idx}->...{Z_idx}"
 
     return H_numerical, rule
@@ -108,17 +145,74 @@ def get_H_even(l1: int, l2: int, l3: int) -> tuple[LinearCombination, str, str, 
         all_rules = get_H_rules_even(l1, l2, l3, t)
 
         # create tensor products of deltas for each rule
-        delta_tensors = [
-            create_delta_tensors(ru["ra"] + ru["sa"] + ru["aa"] + ru["rs"], coeff)
+        tensors = [
+            create_delta_epsilon_tensors(
+                ru["ra"] + ru["sa"] + ru["aa"] + ru["rs"], factor=coeff
+            )
             for ru in all_rules
         ]
 
         # extend them to sum up later
-        out.extend(delta_tensors)
+        out.extend(tensors)
 
     H = LinearCombination(*out)
 
     # Note, this should exactly the same as those in `get_H_rules_even()`
+    X_idx = letter_index(l1, upper_case=True)
+    Y_idx = letter_index(l2, start=l1, upper_case=True)
+    Z_idx = letter_index(l3)
+
+    return H, X_idx, Y_idx, Z_idx
+
+
+def get_H_odd(l1: int, l2: int, l3: int) -> tuple[LinearCombination, str, str, str]:
+    """
+    Calculate the H operator tensor to obtain Z_l3 = H:XY, where l1 + l2 - l3 is odd.
+
+    Args:
+        l1: The rank of the first tensor X.
+        l2: The rank of the second tensor Y.
+        l3: The rank of the output tensor Z.
+        normalize: The normalization method.
+            If `unity`, the output is normalized such that the l3 fold contraction of
+            the output tensor with a unit vector yields 1.
+            If `none`, no normalization is applied.
+
+    Returns:
+        H: Symbolic representation of the H tensor.
+        X_idx: letters used as X indices in H.
+        Y_idx: letters used as Y indices in H.
+        Z_idx: letters used as Z indices in H.
+    """
+    assert (l1 + l2 - l3) % 2 == 1, "l1 + l2 - l3 must be odd"
+
+    k = (l1 + l2 - l3 - 1) // 2
+
+    out = []
+
+    for t in range(min(l1, l2) - k):
+        coeff = Fraction(
+            (-2) ** t, double_factorial(2 * l3 - 1, 2 * l3 - 2 * t - 1 + 2).item()
+        )
+
+        all_rules = get_H_rules_odd(l1, l2, l3, t)
+
+        # create tensor products of deltas for each rule
+        tensors = [
+            create_delta_epsilon_tensors(
+                ru["ra"] + ru["sa"] + ru["aa"] + ru["rs"],
+                epsilon=ru["rsa"][0],
+                factor=coeff,
+            )
+            for ru in all_rules
+        ]
+
+        # extend them to sum up later
+        out.extend(tensors)
+
+    H = LinearCombination(*out)
+
+    # Note, this should exactly the same as those in `get_H_rules_odd()`
     X_idx = letter_index(l1, upper_case=True)
     Y_idx = letter_index(l2, start=l1, upper_case=True)
     Z_idx = letter_index(l3)
@@ -146,7 +240,7 @@ def get_H_rules_even(l1: int, l2: int, l3: int, t: int) -> list[dict[str, list[s
 
     k = (l1 + l2 - l3) // 2
 
-    # r:X, s:Y, a:Z
+    # r indices for X, s indices for Y, a indices for Z
     r_idx = letter_index(l1, upper_case=True)
     s_idx = letter_index(l2, start=l1, upper_case=True)
     a_idx = letter_index(l3)
@@ -167,25 +261,126 @@ def get_H_rules_even(l1: int, l2: int, l3: int, t: int) -> list[dict[str, list[s
     s_rs_idx = s_idx[n_sa:]
 
     # rs pairs
-    rs_idx = [r + s for r, s in zip(r_rs_idx, s_rs_idx)]
+    rs_pairs = [r + s for r, s in zip(r_rs_idx, s_rs_idx)]
 
     all_rules = []
     for perm in all_perms:
 
         # Permute the a indices to symmetrize the output, namely considering the
         # curly braces {}. No need to permute the r and s indices
-        p_a = [a_idx[i] for i in perm]
+        #
+        # Get p_a such that p_a[perm] -> a_idx. This is used because later when we do
+        # tensor product to get Z = H:XY, the rule in the einsum will be sorted in the
+        # right-hand-side. Then, p_a corresponds to the indices on the left-hand-side,
+        # and a_idx (it is sorted here) corresponds to the indices on the
+        # right-hand-side. Then we are essentially symmetrizing the tensors.
+        #
+        # The below is the same as
+        # indices = [letters[perm.index(i)] for i in range(n)]
+        # in get_G_rules_odd() and get_G_rules_even()
+        p_a = [x for _, x in sorted(zip(perm, a_idx))]
 
         # a indices in d_ra, d_sa and d_aa
         a_ra_idx = p_a[:n_ra]
         a_sa_idx = p_a[n_ra : n_ra + n_sa]
         a_aa_idx = p_a[n_ra + n_sa :]
 
-        ra_idx = [r + a for r, a in zip(r_ra_idx, a_ra_idx)]
-        sa_idx = [s + a for s, a in zip(s_sa_idx, a_sa_idx)]
-        aa_idx = [a_aa_idx[i] + a_aa_idx[i + 1] for i in range(0, n_aa, 2)]
+        # Pairs of indices for delta tensors
+        ra_pairs = [r + a for r, a in zip(r_ra_idx, a_ra_idx)]
+        sa_pairs = [s + a for s, a in zip(s_sa_idx, a_sa_idx)]
+        aa_pairs = [a_aa_idx[i] + a_aa_idx[i + 1] for i in range(0, n_aa, 2)]
 
-        all_rules.append({"ra": ra_idx, "sa": sa_idx, "aa": aa_idx, "rs": rs_idx})
+        all_rules.append(
+            {"ra": ra_pairs, "sa": sa_pairs, "aa": aa_pairs, "rs": rs_pairs}
+        )
+
+    return all_rules
+
+
+def get_H_rules_odd(l1: int, l2: int, l3: int, t: int) -> list[dict[str, list[str]]]:
+    """
+    Get the rule for  { eps_rsa d_ra^{l1-k-t} d_sa^{l2-k-t} d_{aa}^t } d_rs^{k+t}.
+
+
+    Args:
+        l1:
+        l2:
+        l3:
+        t:
+
+    Returns:
+        Rules for constructing the H operator for odd l1 + l2 - l3, e.g.
+        {eps_ipA  d_jB d_kC  d_qD d_rE  D_FG} d_ls
+
+    """
+
+    assert (l1 + l2 - l3) % 2 == 1, "l1 + l2 - l3 must be odd"
+
+    k = (l1 + l2 - l3 - 1) // 2
+
+    # r:X, s:Y, a:Z
+    r_idx = letter_index(l1, upper_case=True)
+    s_idx = letter_index(l2, start=l1, upper_case=True)
+    a_idx = letter_index(l3)
+
+    _, symmetry, delta_indices = get_tp_odd_rule(l1, l2, k, t)
+    all_perms = get_permutations_delta(symmetry, delta_indices)
+
+    n_ra = l1 - k - t - 1
+    n_sa = l2 - k - t - 1
+    n_aa = t
+
+    # r indices in epsilon, d_ra, and d_rs
+    r_eps_idx = r_idx[0]
+    r_ra_idx = r_idx[1 : n_ra + 1]
+    r_rs_idx = r_idx[n_ra + 1 :]
+
+    # s indices in epsilon, d_sa, and d_rs
+    s_eps_idx = s_idx[0]
+    s_sa_idx = s_idx[1 : n_sa + 1]
+    s_rs_idx = s_idx[n_sa + 1 :]
+
+    # rs pairs
+    rs_pairs = [r + s for r, s in zip(r_rs_idx, s_rs_idx)]
+
+    all_rules = []
+    for perm in all_perms:
+
+        # Permute the a indices to symmetrize the output, namely considering the
+        # curly braces {}. No need to permute the r and s indices
+        #
+        # Get p_a such that p_a[perm] -> a_idx. This is used because later when we do
+        # tensor product to get Z = H:XY, the rule in the einsum will be sorted in the
+        # right-hand-side. Then, p_a corresponds to the indices on the left-hand-side,
+        # and a_idx (it is sorted here) corresponds to the indices on the
+        # right-hand-side. Then we are essentially symmetrizing the tensors.
+        #
+        # The below is the same as
+        # indices = [letters[perm.index(i)] for i in range(n)]
+        # in get_G_rules_odd() and get_G_rules_even()
+        p_a = [x for _, x in sorted(zip(perm, a_idx))]
+
+        # a indices in epsilon, d_ra, d_sa and d_aa
+        a_eps_idx = p_a[0]
+        a_ra_idx = p_a[1 : n_ra + 1]
+        a_sa_idx = p_a[n_ra + 1 : n_ra + n_sa + 1]
+        a_aa_idx = p_a[n_ra + n_sa + 1 :]
+
+        # Pairs of indices for delta tensors
+        rsa_triplet = [r_eps_idx + s_eps_idx + a_eps_idx]
+        ra_pairs = [r + a for r, a in zip(r_ra_idx, a_ra_idx)]
+        sa_pairs = [s + a for s, a in zip(s_sa_idx, a_sa_idx)]
+        aa_pairs = [a_aa_idx[i] + a_aa_idx[i + 1] for i in range(0, n_aa, 2)]
+
+        all_rules.append(
+            {
+                "rsa": rsa_triplet,
+                "ra": ra_pairs,
+                "sa": sa_pairs,
+                "aa": aa_pairs,
+                "rs": rs_pairs,
+            }
+        )
 
     return all_rules
 
@@ -267,7 +462,7 @@ def get_tp_odd_rule(l1: int, l2: int, k: int, t: int) -> tuple[str, str, str]:
             two indices are symmetric.
         delta_indices: The indices for the delta tensors.
     """
-    # example: epsilon_uvw x_vabc  y_wabd I_AB -> ucdAB
+    # example: epsilon_Uvw x_vabc  y_wabd I_AB -> UcdAB
 
     xy_contracted = letter_index(k + t)
     x_remain = letter_index(l1 - 1 - k - t, k + t)
