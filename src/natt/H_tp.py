@@ -288,7 +288,7 @@ def get_H_rules_even(l1: int, l2: int, l3: int, t: int) -> list[dict[str, list[s
         # Pairs of indices for delta tensors
         ra_pairs = [r + a for r, a in zip(r_ra_idx, a_ra_idx)]
         sa_pairs = [s + a for s, a in zip(s_sa_idx, a_sa_idx)]
-        aa_pairs = [a_aa_idx[i] + a_aa_idx[i + 1] for i in range(0, n_aa, 2)]
+        aa_pairs = [a_aa_idx[2 * i] + a_aa_idx[2 * i + 1] for i in range(n_aa)]
 
         all_rules.append(
             {"ra": ra_pairs, "sa": sa_pairs, "aa": aa_pairs, "rs": rs_pairs}
@@ -370,7 +370,7 @@ def get_H_rules_odd(l1: int, l2: int, l3: int, t: int) -> list[dict[str, list[st
         rsa_triplet = [r_eps_idx + s_eps_idx + a_eps_idx]
         ra_pairs = [r + a for r, a in zip(r_ra_idx, a_ra_idx)]
         sa_pairs = [s + a for s, a in zip(s_sa_idx, a_sa_idx)]
-        aa_pairs = [a_aa_idx[i] + a_aa_idx[i + 1] for i in range(0, n_aa, 2)]
+        aa_pairs = [a_aa_idx[2 * i] + a_aa_idx[2 * i + 1] for i in range(n_aa)]
 
         all_rules.append(
             {
