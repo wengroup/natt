@@ -48,6 +48,10 @@ def tp_delta_epsilon(tp: TensorProduct, mode: str) -> Tensor:
         else:
             raise ValueError(f"Unknown tensor type: {type(t)}")
 
+    # The tensor product actually has no delta or epsilon tensors
+    if not delta_rules and not epsilon_rules:
+        return torch.tensor(float(tp.factor))
+
     left = ",".join(delta_rules + epsilon_rules)
 
     # Since the tensors only consists of delta and epsilon, the left rule should be OK,
