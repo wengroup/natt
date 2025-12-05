@@ -27,7 +27,7 @@ def find_independent_tensors(
 
     # Check all diagonal elements
     independent_indices = []
-    for i in range(len(vectors)):
+    for i in range(min(matrix.shape)):
         # TODO, double check that it is OK to only check diagonal
         if torch.abs(R[i, i]) > tolerance:
             independent_indices.append(i)
