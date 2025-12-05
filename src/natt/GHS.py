@@ -26,7 +26,7 @@ from natt.matrix import (
     matrix_transpose,
 )
 from natt.ops import simplify_linear_combination
-from natt.qr import find_independent_tensors, is_linear_independent
+from natt.qr import find_independent_tensors
 from natt.sym import get_random_tensor_of_symmetry
 from natt.symbolic import LinearCombination
 from natt.symmetrize import get_random_natural_tensor
@@ -415,11 +415,6 @@ def get_G_H_S_rules_and_values(
 #  2. multiply_2() to get X = G \odot^n T
 #  3. Simplify_linear_combination() to get the simplified X.
 #  4. Compare X to see if they are the same.
-
-
-#
-# TODO, this can be refactored to remove `symmetry` and provide a tensor `T` as input.
-#
 def group_G(
     T: Tensor,
     all_G: list[LinearCombination],
@@ -486,7 +481,7 @@ def get_independent_H_coeff(
 
     This is based on the values of the G:
     1. For GT=0, we ignore the corresponding h_pq.
-    2. For G1, G2...Gq that gives the same GT values, we sum the corresponding h_pq
+    2. For G1, G2, ..., Gq that gives the same GT values, we sum the corresponding h_pq
     over q.
 
     Args:
@@ -507,7 +502,7 @@ def get_independent_H_coeff(
     # and the G are equivalent in each group.
     # We obtain:
     # H_p = u_p1 G_1 + u_p2 G_2 + u_pr G_r
-    # where r is the number of unique groups.
+    # where r is the number of unique groups, u_pi are the sum of some h_pj over j.
     u = []
     for h_p in h:
         u_p = []
@@ -518,29 +513,21 @@ def get_independent_H_coeff(
         u.append(u_p)
 
     # Split the H tensors (u here) into independent ones M and dependent ones N
-    M = []  # independent H
-    M_indices = []  # indices of independent H
-    N = []  # dependent H
-    N_indices = []  # indices of dependent H
+    tensor_u = [torch.tensor([float(x) for x in row]) for row in u]
+    _, M_indices = find_independent_tensors(tensor_u)
 
-    num = 0
-    for i, row in enumerate(u):
-
-        # Independent H tensor
-        if (
-            num < num_ind  # not find enough
-            # and any(val != 0 for val in row)  # all zeros are not independent
-            and is_linear_independent(row, M)  # independent to currently selected
-        ):
-            M.append(row)
-            M_indices.append(i)
-            num += 1
-        # dependent H tensor
-        else:
-            N.append(row)
-            N_indices.append(i)
-    if not num == num_ind:
+    if len(M_indices) != num_ind:
         raise RuntimeError("Not enough independent H tensors found.")
+
+    N_indices = []
+    M = []
+    N = []
+    for i in range(len(u)):
+        if i in M_indices:
+            M.append(u[i])
+        else:
+            N.append(u[i])
+            N_indices.append(i)
 
     M = matrix_transpose(M)
     N = matrix_transpose(N)
@@ -550,6 +537,7 @@ def get_independent_H_coeff(
     return coeff, M_indices, N_indices
 
 
+# TODO, rename K to Q to be consistent with our paper
 def get_K(
     all_G: list[LinearCombination],
     coeff: list[list[Fraction]],
@@ -597,4 +585,7 @@ if __name__ == "__main__":
     symmetry = "ijkl=jikl=klij"
     out = get_G_H_S(rank, symmetry, numerical=False)
     pprint(out)
-    # dumpfn(out, "out.yaml")
+
+    # import yaml
+    # with open("out_new.yaml", "w") as f:
+    #     yaml.dump(out, f)
