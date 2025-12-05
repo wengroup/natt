@@ -313,20 +313,19 @@ def combine_G_H_of_j(
 
     # All G result in zero
     if len(indices_group) == 0:
-        K = []
+        Q = []
         ind_idx = []
     # Each G form its own group, i.e. all G are independent
     elif len(indices_group) == len(G):
-        K = G
+        Q = G
         ind_idx = range(len(G))
     # Some G are not unique
     else:
-        # TODO, These two can be combined as a single function
         coeff, ind_idx, dep_idx = get_independent_H_coeff(h, indices_group)
-        K = get_K(G, coeff, ind_idx, dep_idx, indices_group)
+        Q = get_Q(G, coeff, ind_idx, dep_idx)
 
-    # We use K as G now
-    ind_G = K
+    # We use Q as G now
+    ind_G = Q
     ind_H = [H[i] for i in ind_idx]
 
     return ind_G, ind_H
@@ -537,37 +536,36 @@ def get_independent_H_coeff(
     return coeff, M_indices, N_indices
 
 
-# TODO, rename K to Q to be consistent with our paper
-def get_K(
+def get_Q(
     all_G: list[LinearCombination],
     coeff: list[list[Fraction]],
     ind_indices: list[int],
     dep_indices: list[int],
-    indices_group: list[list[int]],
 ) -> list[LinearCombination]:
     """
-    Get K tensors.
+    Get Q tensors.
 
-    These will be used as the new G tensors.
+    Q are linear combinations of G and be used as new G tensors.
 
     Args:
         all_G:
         coeff: Each column gives the coefficients of combining independent H to obtain
             other H.
-        indices_group: each inner list contains indices of G tensors that are
-            equivalent to each other.
+        ind_indices: indices of independent G
+        dep_indices: indices of dependent G
 
     Returns:
+        Q tensors that can be used as new G tensors.
     """
 
-    all_K = []
+    all_Q = []
     for ii, i in enumerate(ind_indices):
-        K = all_G[i]
+        Q = all_G[i]
         for jj, j in enumerate(dep_indices):
-            K += coeff[ii][jj] * all_G[j]
-        all_K.append(K)
+            Q += coeff[ii][jj] * all_G[j]
+        all_Q.append(Q)
 
-    return all_K
+    return all_Q
 
 
 if __name__ == "__main__":
