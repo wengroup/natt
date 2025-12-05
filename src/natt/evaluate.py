@@ -58,11 +58,12 @@ def tp_delta_epsilon(tp: TensorProduct, mode: str) -> Tensor:
     # The order of individual index in lower indices (or upper indices) in the right
     # does not matter when consider Z = HT and such cases, since this function is only
     # since H is symmetric.
-    # TODO,
-    # But, the order of the indices in the right rule can matter when we do
+    #
+    # TODO
+    # The order of the indices in the right rule can matter when we do
     # Z = H:XY (see H_tp.py), because H carries three set of indices then. That's why
-    # we # sort the # indices. This is definitely abuse of this function. It is designed
-    # only for # cases like Z = HT, so we need to create a new function just like this
+    # we sort the indices. This is definitely abuse of this function. It is designed
+    # only for cases like Z = HT, so we need to create a new function just like this
     # for Z = H:XY.
     right = "".join(delta_rules + epsilon_rules)
     lower = sorted([c for c in right if c.islower()])
