@@ -37,6 +37,7 @@ def find_independent_tensors(
     return independent_tensors, independent_indices
 
 
+# TODO, this is not used, delete
 def is_linear_independent(a: list[Fraction], m: list[list[Fraction]]) -> bool:
     """Check whether a vector can be written as a linear combination of other vectors.
 
