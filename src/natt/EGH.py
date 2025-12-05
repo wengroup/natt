@@ -26,7 +26,7 @@ from natt.symmetrize import get_permutations_2
 from natt.utils import letter_index
 
 
-def get_E(j: int, s_letters: str = None) -> LinearCombination:
+def get_E(j: int, s_letters: str = None, verbose: int = 0) -> LinearCombination:
     """
     Invariant tensors of rank j: E(j | j).
 
@@ -37,6 +37,7 @@ def get_E(j: int, s_letters: str = None) -> LinearCombination:
         j: rank of the projection operator
         s_letters: letters for the upper case indices, if None, use the default:
             A, B, C, etc.
+        verbose: verbosity level for debugging
 
     Returns:
         Tensor operations with delta tensors. We use lower case letters `a`, `b`, `c`,
@@ -69,7 +70,13 @@ def get_E(j: int, s_letters: str = None) -> LinearCombination:
 
         out.extend(delta_tensors)
 
-        # print(f"@@@ debug E_j: j={j}, t={t}, c={c}")
+        if verbose > 0:
+            tmp = []
+            tmp.extend(delta_tensors)
+            print(
+                f"@ debug E_j: j={j}, t={t}, c={c}, num terms: {len(tmp)}, Terms: ",
+                "{LinearCombination(*tmp)}",
+            )
 
     return LinearCombination(*out)
 
@@ -678,3 +685,7 @@ def find_matrix_factorization(
     B = [[int(f / c) if f is not None else None for f in row] for row in A]
 
     return c, B
+
+
+if __name__ == "__main__":
+    E3 = get_E(j=2, verbose=0)

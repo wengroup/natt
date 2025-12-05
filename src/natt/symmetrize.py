@@ -1,5 +1,9 @@
 """
 Symmetrization of a tensor (w or w/o partial symmetry) to get a fully symmetric tensor.
+
+Reference:
+J. Jerphagnon, D. Chemla, and R. Bonneville, The description of the physical properties
+of condensed matter using irreducible tensors, Advances in Physics 27, 609 (1978).
 """
 
 import itertools
@@ -339,13 +343,13 @@ def get_permutations_delta(
            4 are symmetric (both associated with `y`)
         2. indices 5 and 6 are symmetric (both associated with `a`), and indices 7 and
            8 are symmetric (both associated with `b`)
-        3. indices 5,6 and 7,8 are symmetric because both `a` and `b` are in
+        3. indices pairs (5, 6) and (7, 8) are symmetric because both `a` and `b` are in
            `delta_indices`, meaning they are associated with delta tensors.
 
     So, we consider three types of symmetries:
         1. symmetries in other indices of the tensor
-        2. minor symmetry in delta tensors
-        3. major symmetry in delta tensors
+        2. minor symmetry in delta tensors (i.e. symmetry in the indices of each delta)
+        3. major symmetry in delta tensors (i.e. symmetry between different deltas)
 
     For 2 and 3, consider, for example:
         delta_ij delta_kl = delta_ji delta_lk = delta_kl delta_ij,

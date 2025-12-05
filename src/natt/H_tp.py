@@ -245,9 +245,6 @@ def get_H_rules_even(l1: int, l2: int, l3: int, t: int) -> list[dict[str, list[s
     s_idx = letter_index(l2, start=l1, upper_case=True)
     a_idx = letter_index(l3)
 
-    _, symmetry, delta_indices = get_tp_even_rule(l1, l2, k, t)
-    all_perms = get_permutations_delta(symmetry, delta_indices)
-
     n_ra = l1 - k - t
     n_sa = l2 - k - t
     n_aa = t
@@ -262,6 +259,9 @@ def get_H_rules_even(l1: int, l2: int, l3: int, t: int) -> list[dict[str, list[s
 
     # rs pairs
     rs_pairs = [r + s for r, s in zip(r_rs_idx, s_rs_idx)]
+
+    _, symmetry, delta_indices = get_tp_even_rule(l1, l2, k, t)
+    all_perms = get_permutations_delta(symmetry, delta_indices)
 
     all_rules = []
     for perm in all_perms:
