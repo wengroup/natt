@@ -8,7 +8,7 @@ It provides tools to decompose arbitrary Cartesian tensors into natural tensor c
 It is recommended to create a virtual environment first (e.g. using conda) before installing `natt`:
 
 ```bash
-git clone https://github.com/mjwen/natt.git
+git clone https://github.com/wengroup/natt.git
 cd natt
 pip install -e .
 ```
