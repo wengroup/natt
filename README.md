@@ -1,5 +1,3 @@
-from torch_geometric.nn import summary
-
 # natt
 
 `natt` is a Python package for constructing, analyzing, and embedding **natural tensors** — symmetric traceless tensors that form irreducible representations of the rotation group O(3).
