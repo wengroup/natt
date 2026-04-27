@@ -267,7 +267,8 @@ def get_H_rules_even(l1: int, l2: int, l3: int, t: int) -> list[dict[str, list[s
     for perm in all_perms:
 
         # Permute the a indices to symmetrize the output, namely considering the
-        # curly braces {}. No need to permute the r and s indices
+        # curly braces {}. No need to permute the r and s indices, since r and k come
+        # from natural tensors, and thus all r or k indices are symmetric.
         #
         # Get p_a such that p_a[perm] -> a_idx. This is used because later when we do
         # tensor product to get Z = H:XY, the rule in the einsum will be sorted in the
@@ -550,3 +551,16 @@ def coeff_D(l1: int, l2: int, l3: int, device: Optional[torch.device] = None):
         / double_factorial(L3 + 1, device=device)
         / factorial((L + 1) // 2, device=device)
     )
+
+if __name__ == '__main__':
+
+    # Get symbolic
+    l1=2
+    l2=1
+    l3=2
+    if (l1 + l2 - l3) % 2 == 0:
+        H, X_idx, Y_idx, Z_idx = get_H_even(l1, l2, l3)
+    else:
+        H, X_idx, Y_idx, Z_idx = get_H_odd(l1, l2, l3)
+    H = simplify_linear_combination(H)
+    print(f'H after simplification (l1={l1}, l2={l2}, l3={l3}):', H)
