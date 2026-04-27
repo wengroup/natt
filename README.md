@@ -13,7 +13,7 @@ cd natt
 pip install -e .
 ```
 
-## Usage
+## Example
 
 The example below converts a rank-2 Cartesian tensor into its natural tensor components and reconstructs the original tensor.
 
@@ -52,6 +52,11 @@ assert torch.allclose(T_sum, T, atol=1e-6)
 ```
 
 See [`example/get_natural_tensor.py`](example/get_natural_tensor.py) for a complete working example.
+
+## Generating projectors
+
+`natt` can be used to generate three types of projectors: unit vector projectors, tensor product projectors, and decomposition/reconstruction projectors for physical Cartesian tensors.
+See the `generate_*.py` scripts in the [`example/`](example/) directory and [`example/README.md`](example/README.md) for details.
 
 
 ## Citation

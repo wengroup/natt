@@ -1,8 +1,11 @@
+import gzip
 import itertools
 import string
+from pathlib import Path
 from typing import Optional
 
 import torch
+import yaml
 from torch import Tensor
 
 
@@ -195,3 +198,20 @@ def is_symmetric_traceless(T: Tensor, atol: float = 1e-6, rtol: float = 1e-5) ->
     return is_symmetric(T, atol=atol, rtol=rtol) and is_traceless(
         T, atol=atol, rtol=rtol
     )
+
+
+def yaml_dump(obj: dict, filename: Path, compress: bool = True) -> None:
+    """Dump a dictionary to a yaml file.
+
+    Args:
+        obj: The dictionary to dump.
+        filename: The path to the yaml file.
+        compress: Whether to compress the file using gzip. Default is True.
+    """
+    if compress:
+        filename = filename.with_suffix(filename.suffix + ".gz")
+        with gzip.open(filename, "wt") as f:
+            yaml.dump(obj, f)
+    else:
+        with open(filename, "w") as f:
+            yaml.dump(obj, f)
